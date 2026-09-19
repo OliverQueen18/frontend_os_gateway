@@ -1,0 +1,56 @@
+<p-toast />
+<app-page-header title="Paramètres" subtitle="Préférences opérationnelles de la console." />
+
+<section class="panel form-grid settings">
+  <label>
+    <span>Organisation</span>
+    <input pInputText [(ngModel)]="settings.orgName" />
+  </label>
+  <label>
+    <span>Fuseau horaire</span>
+    <input pInputText [(ngModel)]="settings.timezone" />
+  </label>
+  <label>
+    <span>Timeout heartbeat (s)</span>
+    <p-inputnumber [(ngModel)]="settings.heartbeatTimeoutSec" [min]="30" [max]="300" />
+  </label>
+  <label>
+    <span>Seuil batterie basse (%)</span>
+    <p-inputnumber [(ngModel)]="settings.lowBatteryThreshold" [min]="5" [max]="50" />
+  </label>
+  <label>
+    <span>Devise par défaut</span>
+    <input pInputText [(ngModel)]="settings.defaultCurrency" />
+  </label>
+  <label>
+    <span>Frais d'inscription distributeur (XOF)</span>
+    <p-inputnumber
+      [(ngModel)]="settings.distributorRegistrationFee"
+      [min]="0"
+      mode="decimal"
+      locale="fr-FR"
+      [useGrouping]="true"
+    />
+  </label>
+  <label class="full">
+    <span>Conditions d'utilisation distributeur</span>
+    <textarea
+      pTextarea
+      rows="10"
+      [(ngModel)]="settings.distributorRegistrationTerms"
+      placeholder="Texte affiché sur la page d'inscription mobile…"
+    ></textarea>
+    <small class="form-hint">Affiché sur l’écran d’inscription ; le distributeur doit les accepter.</small>
+  </label>
+  <label class="switch-row">
+    <span>Temps réel (polling 5s)</span>
+    <p-toggleswitch [(ngModel)]="settings.enableRealtime" />
+  </label>
+  <label class="switch-row">
+    <span>Alertes email</span>
+    <p-toggleswitch [(ngModel)]="settings.enableEmailAlerts" />
+  </label>
+  <div class="full">
+    <p-button label="Enregistrer" icon="pi pi-save" [loading]="saving()" (onClick)="save()" />
+  </div>
+</section>

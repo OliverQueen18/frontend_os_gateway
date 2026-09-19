@@ -1,0 +1,162 @@
+<p-toast />
+<app-page-header
+  title="Administration"
+  subtitle="Rôles, permissions et matrice d’accès."
+>
+  <p-button label="Permission" icon="pi pi-key" severity="secondary" [outlined]="true" (onClick)="openCreatePerm()" />
+  <p-button label="Nouveau rôle" icon="pi pi-plus" (onClick)="openCreateRole()" />
+</app-page-header>
+
+<section class="panel">
+  <div class="panel__head">
+    <h2>Rôles</h2>
+  </div>
+  <div class="filters mb-3">
+    <div class="search-field">
+      <i class="pi pi-search"></i>
+      <input pInputText type="search" [(ngModel)]="roleSearch" placeholder="Rechercher un rôle…" />
+    </div>
+  </div>
+  <p-table [value]="filteredRoles()" styleClass="ops-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Rôle</th>
+        <th>Description</th>
+        <th>Permissions</th>
+        <th></th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-r>
+        <tr>
+          <td>
+            <p-tag [value]="roleLabel(r.name)" severity="info" />
+            <div class="muted mono">{{ r.name }}</div>
+          </td>
+          <td>{{ r.description }}</td>
+          <td>{{ formatPermissionList(r.permissions) }}</td>
+          <td class="actions">
+            <p-button icon="pi pi-pencil" [text]="true" (onClick)="openEditRole(r)" />
+            @if (r.name !== 'ADMIN') {
+              <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="removeRole(r)" />
+            }
+          </td>
+        </tr>
+    </ng-template>
+  </p-table>
+</section>
+
+<section class="panel mt-4">
+  <div class="panel__head">
+    <h2>Permissions</h2>
+  </div>
+  <div class="filters mb-3">
+    <div class="search-field">
+      <i class="pi pi-search"></i>
+      <input pInputText type="search" [(ngModel)]="permSearch" placeholder="Rechercher une permission…" />
+    </div>
+  </div>
+  <p-table [value]="filteredPermissions()" styleClass="ops-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Libellé</th>
+        <th>Code</th>
+        <th></th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-p>
+      <tr>
+        <td>{{ permissionLabel(p.code, p.description) }}</td>
+        <td class="mono">{{ p.code }}</td>
+        <td class="actions">
+          <p-button icon="pi pi-pencil" [text]="true" (onClick)="openEditPerm(p)" />
+          <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="removePerm(p)" />
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</section>
+
+<section class="panel mt-4">
+  <h2>Matrice rôle × permission</h2>
+  <p-table [value]="permissions()" styleClass="ops-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Permission</th>
+        @for (r of roles(); track r.id) {
+          <th>{{ roleLabel(r.name) }}</th>
+        }
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-p>
+      <tr>
+        <td>{{ permissionLabel(p.code, p.description) }}</td>
+        @for (r of roles(); track r.id) {
+          <td>{{ roleHas(r, p.code) ? '✓' : '—' }}</td>
+        }
+      </tr>
+    </ng-template>
+  </p-table>
+</section>
+
+<p-dialog
+  styleClass="crud-dialog"
+  [header]="editingRoleId ? 'Modifier rôle' : 'Nouveau rôle'"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '520px' }"
+  [(visible)]="roleVisible"
+>
+  <form class="form-grid" [formGroup]="roleForm" (ngSubmit)="saveRole()">
+    <label class="full">
+      <span>Nom</span>
+      <input pInputText formControlName="name" placeholder="SUPERVISOR (code technique)" />
+    </label>
+    <label class="full">
+      <span>Description</span>
+      <input pInputText formControlName="description" />
+    </label>
+    <label class="full">
+      <span>Permissions</span>
+      <p-multiselect
+        [options]="permissionOptions()"
+        formControlName="permissions"
+        optionLabel="label"
+        optionValue="value"
+        display="chip"
+        styleClass="w-full"
+        appendTo="body"
+        filter="true"
+      />
+    </label>
+    <div class="full actions">
+      <p-button type="button" label="Annuler" severity="secondary" [text]="true" (onClick)="roleVisible = false" />
+      <p-button type="submit" label="Enregistrer" icon="pi pi-check" />
+    </div>
+  </form>
+</p-dialog>
+
+<p-dialog
+  styleClass="crud-dialog"
+  [header]="editingPermId ? 'Modifier permission' : 'Nouvelle permission'"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '460px' }"
+  [(visible)]="permVisible"
+>
+  <form class="form-grid" [formGroup]="permForm" (ngSubmit)="savePerm()">
+    <label class="full">
+      <span>Code</span>
+      <input pInputText formControlName="code" placeholder="USERS_READ" />
+    </label>
+    <label class="full">
+      <span>Description</span>
+      <input pInputText formControlName="description" />
+    </label>
+    <div class="full actions">
+      <p-button type="button" label="Annuler" severity="secondary" [text]="true" (onClick)="permVisible = false" />
+      <p-button type="submit" label="Enregistrer" icon="pi pi-check" />
+    </div>
+  </form>
+</p-dialog>

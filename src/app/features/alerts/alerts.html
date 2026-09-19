@@ -1,0 +1,42 @@
+<app-page-header title="Alertes" subtitle="Incidents gateway, batterie, débit et notifications opérationnelles." />
+
+<section class="panel mb-4">
+  <div class="filters">
+    <div class="search-field">
+      <i class="pi pi-search"></i>
+      <input pInputText type="search" [(ngModel)]="search" placeholder="Rechercher (titre, source…)" />
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <p-table [value]="filteredRows()" styleClass="ops-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Sévérité</th>
+        <th>Titre</th>
+        <th>Source</th>
+        <th>Quand</th>
+        <th>État</th>
+        <th></th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-a>
+      <tr [class.opacity-60]="a.acknowledged">
+        <td><span class="sev" [attr.data-sev]="a.severity">{{ a.severity }}</span></td>
+        <td>
+          <div class="cell-title">{{ a.title }}</div>
+          <div class="muted">{{ a.message }}</div>
+        </td>
+        <td class="mono">{{ a.source }}</td>
+        <td>{{ a.createdAt | relativeTime }}</td>
+        <td>{{ a.acknowledged ? 'Acquittée' : 'Ouverte' }}</td>
+        <td>
+          @if (!a.acknowledged) {
+            <p-button label="Acquitter" icon="pi pi-check" [text]="true" (onClick)="ack(a)" />
+          }
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</section>

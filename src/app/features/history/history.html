@@ -1,0 +1,35 @@
+<app-page-header title="Historique" subtitle="Vue chronologique des opérations récentes." />
+
+<section class="panel mb-4">
+  <div class="filters">
+    <div class="search-field">
+      <i class="pi pi-search"></i>
+      <input pInputText type="search" [(ngModel)]="search" placeholder="Rechercher (référence, type…)" />
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <p-table [value]="filteredRows()" styleClass="ops-table" [paginator]="true" [rows]="10">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Quand</th>
+        <th>Référence</th>
+        <th>Type</th>
+        <th>Opérateur</th>
+        <th>Montant</th>
+        <th>Statut</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-tx>
+      <tr>
+        <td>{{ tx.createdAt | relativeTime }}</td>
+        <td class="mono">{{ tx.reference }}</td>
+        <td>{{ tx.type }}</td>
+        <td>{{ tx.operator }}</td>
+        <td class="tabular">{{ tx.amount | number:'1.0-0' }} {{ tx.currency }}</td>
+        <td><app-status-badge [status]="tx.status" /></td>
+      </tr>
+    </ng-template>
+  </p-table>
+</section>

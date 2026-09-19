@@ -1,0 +1,210 @@
+<p-toast />
+<app-page-header
+  title="Rapports"
+  subtitle="Synthèses transactions et commissions (global ou distributeur)."
+>
+  <p-button
+    [label]="exportLabel"
+    icon="pi pi-download"
+    [loading]="exporting()"
+    (onClick)="exportCsv()"
+  />
+</app-page-header>
+
+<section class="panel mb-4">
+  <div class="report-filters">
+    <label class="report-filters__field">
+      <span>Période</span>
+      <p-datepicker
+        [(ngModel)]="range"
+        selectionMode="range"
+        dateFormat="dd/mm/yy"
+        placeholder="Du jj/mm/aa  —  Au jj/mm/aa"
+        [showIcon]="true"
+        iconDisplay="input"
+        [showButtonBar]="true"
+        [numberOfMonths]="2"
+        [maxDate]="today"
+        [firstDayOfWeek]="1"
+        [readonlyInput]="false"
+        [hideOnDateTimeSelect]="false"
+        styleClass="report-datepicker"
+        inputStyleClass="report-datepicker-input"
+        appendTo="body"
+        (onSelect)="onRangeChange()"
+        (onClear)="onRangeChange()"
+      />
+    </label>
+
+    @if (!isDistributorOnly) {
+      <label class="report-filters__field">
+        <span>Distributeur</span>
+        <p-select
+          [options]="distributorOptions()"
+          [(ngModel)]="distributorId"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Tous les distributeurs"
+          [filter]="true"
+          appendTo="body"
+          (onChange)="load()"
+        />
+      </label>
+    }
+
+    <label class="report-filters__field">
+      <span>Type d’opération</span>
+      <p-select
+        [options]="typeOptions()"
+        [(ngModel)]="operationType"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Tous les types"
+        [filter]="true"
+        appendTo="body"
+        (onChange)="load()"
+      />
+    </label>
+
+    <label class="report-filters__field">
+      <span>Gateway</span>
+      <p-select
+        [options]="gatewayOptions()"
+        [(ngModel)]="gatewayId"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Toutes les gateways"
+        [filter]="true"
+        appendTo="body"
+        (onChange)="load()"
+      />
+    </label>
+
+    <div class="report-filters__presets">
+      @for (p of presets; track p.key) {
+        <p-button
+          [label]="p.label"
+          size="small"
+          [severity]="activePreset === p.key ? 'primary' : 'secondary'"
+          [outlined]="activePreset !== p.key"
+          (onClick)="applyPreset(p.key)"
+        />
+      }
+    </div>
+
+    <p-button label="Générer" icon="pi pi-chart-bar" (onClick)="load()" />
+  </div>
+
+  <div class="report-filters mt-3">
+    <div class="report-filters__search">
+      <i class="pi pi-search"></i>
+      <input
+        pInputText
+        type="search"
+        [(ngModel)]="search"
+        placeholder="Rechercher dans le tableau…"
+      />
+    </div>
+  </div>
+
+  <p class="report-filters__period">Période sélectionnée : <strong>{{ periodLabel }}</strong></p>
+</section>
+
+<section class="panel">
+  <p-tabs [(value)]="activeTab">
+    <p-tablist>
+      @if (!isDistributorOnly) {
+        <p-tab value="0">Transactions</p-tab>
+        <p-tab value="1">Commissions</p-tab>
+      } @else {
+        <p-tab value="1">Mes commissions</p-tab>
+      }
+    </p-tablist>
+    <p-tabpanels>
+      @if (!isDistributorOnly) {
+        <p-tabpanel value="0">
+          @if (report(); as r) {
+            <p class="muted mb-3">Du {{ r.from | date:'dd MMMM yyyy' }} au {{ r.to | date:'dd MMMM yyyy' }}</p>
+            <p-table [value]="filteredTxRows()" styleClass="ops-table">
+              <ng-template pTemplate="header">
+                <tr>
+                  <th>Opérateur</th>
+                  <th>Type</th>
+                  <th>Statut</th>
+                  <th>Volume</th>
+                  <th>Montant</th>
+                  <th>Commission</th>
+                  <th>Part admin</th>
+                  <th>Part distributeur</th>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="body" let-row>
+                <tr>
+                  <td>{{ row['operator'] }}</td>
+                  <td>{{ row['type'] }}</td>
+                  <td>{{ row['status'] }}</td>
+                  <td class="tabular">{{ num(row, 'count') | number }}</td>
+                  <td class="tabular">{{ num(row, 'total_amount') | number:'1.0-0' }} XOF</td>
+                  <td class="tabular">{{ num(row, 'total_commission') | number:'1.0-0' }}</td>
+                  <td class="tabular">{{ num(row, 'total_admin_commission') | number:'1.0-0' }}</td>
+                  <td class="tabular">{{ num(row, 'total_distributor_commission') | number:'1.0-0' }}</td>
+                </tr>
+              </ng-template>
+              <ng-template pTemplate="emptymessage">
+                <tr><td colspan="8" class="muted">Aucune donnée pour cette période / ces filtres</td></tr>
+              </ng-template>
+            </p-table>
+          }
+        </p-tabpanel>
+      }
+
+      <p-tabpanel value="1">
+        @if (commissions(); as c) {
+          <p class="muted mb-3">Du {{ c.from | date:'dd MMMM yyyy' }} au {{ c.to | date:'dd MMMM yyyy' }}</p>
+          @if (c.totals; as t) {
+            <p class="mb-3">
+              Total commissions {{ (t.totalCommission ?? 0) | number:'1.0-0' }} XOF ·
+              Admin {{ (t.totalAdminCommission ?? 0) | number:'1.0-0' }} ·
+              Distributeur {{ (t.totalDistributorCommission ?? 0) | number:'1.0-0' }}
+            </p>
+          }
+          <p-table [value]="filteredCommissionRows()" styleClass="ops-table">
+            <ng-template pTemplate="header">
+              <tr>
+                @if (!isDistributorOnly) {
+                  <th>Distributeur</th>
+                }
+                <th>Opérateur</th>
+                <th>Type</th>
+                <th>Volume</th>
+                <th>Montant</th>
+                <th>Commission</th>
+                <th>Part admin</th>
+                <th>Part distributeur</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                @if (!isDistributorOnly) {
+                  <td>{{ row['distributor_code'] || '—' }} — {{ row['distributor_name'] || '' }}</td>
+                }
+                <td>{{ row['operator'] }}</td>
+                <td>{{ row['type'] }}</td>
+                <td class="tabular">{{ num(row, 'count') | number }}</td>
+                <td class="tabular">{{ num(row, 'total_amount') | number:'1.0-0' }} XOF</td>
+                <td class="tabular">{{ num(row, 'total_commission') | number:'1.0-0' }}</td>
+                <td class="tabular">{{ num(row, 'total_admin_commission') | number:'1.0-0' }}</td>
+                <td class="tabular">{{ num(row, 'total_distributor_commission') | number:'1.0-0' }}</td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td [attr.colspan]="isDistributorOnly ? 7 : 8" class="muted">Aucune commission pour cette période / ces filtres</td>
+              </tr>
+            </ng-template>
+          </p-table>
+        }
+      </p-tabpanel>
+    </p-tabpanels>
+  </p-tabs>
+</section>

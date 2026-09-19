@@ -1,0 +1,60 @@
+@if (gateway(); as g) {
+  <app-page-header [title]="g.name" [subtitle]="g.deviceId" eyebrow="Gateway">
+    <a routerLink="/gateways" class="link"><i class="pi pi-arrow-left"></i> Retour</a>
+  </app-page-header>
+
+  <section class="detail-grid">
+    <article class="panel">
+      <h2>Statut live</h2>
+      <div class="stack">
+        <div><span class="muted">État</span><app-status-badge [status]="g.status" /></div>
+        <div><span class="muted">Opérateur</span><strong>{{ g.operator }}</strong></div>
+        <div><span class="muted">Téléphone</span><strong>{{ g.phoneNumber || '—' }}</strong></div>
+        <div>
+          <span class="muted">PIN USSD</span>
+          <strong>{{ g.ussdPinSet ? 'Configuré' : 'Non défini' }}</strong>
+        </div>
+        <div><span class="muted">Internet</span><strong>{{ g.internetAvailable ? 'OK' : 'KO' }}</strong></div>
+        <div><span class="muted">Dernier heartbeat</span><strong>{{ g.lastHeartbeatAt | relativeTime }}</strong></div>
+      </div>
+    </article>
+
+    <article class="panel">
+      <h2>Santé appareil</h2>
+      <div class="stack">
+        <div>
+          <span class="muted">Batterie</span>
+          <app-meter-bar [value]="g.batteryLevel" kind="battery" />
+        </div>
+        <div>
+          <span class="muted">Signal</span>
+          <app-meter-bar [value]="g.networkStrength" kind="signal" />
+        </div>
+        <div><span class="muted">Charge</span><strong>{{ g.loadScore }}%</strong></div>
+        <div><span class="muted">Température</span><strong>{{ g.temperature ?? '—' }} °C</strong></div>
+        <div><span class="muted">Mémoire libre</span><strong>{{ g.memoryFreeMb ?? '—' }} Mo</strong></div>
+        <div><span class="muted">Stockage libre</span><strong>{{ g.storageFreeMb ?? '—' }} Mo</strong></div>
+      </div>
+    </article>
+
+    <article class="panel">
+      <h2>Localisation</h2>
+      <p class="muted">Coordonnées GPS du dernier heartbeat</p>
+      @if (hasGps(g)) {
+        <p class="mono">{{ g.latitude }}, {{ g.longitude }}</p>
+        <iframe
+          class="dist-map-frame"
+          title="Carte gateway"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+          [src]="osmEmbedUrl(g.latitude!, g.longitude!)"
+        ></iframe>
+      } @else {
+        <p class="mono">—</p>
+        <div class="map-placeholder">Pas de GPS reçu pour ce gateway</div>
+      }
+    </article>
+  </section>
+} @else {
+  <p class="muted">Gateway introuvable.</p>
+}

@@ -1,0 +1,162 @@
+<p-toast />
+<app-page-header title="Gateways" subtitle="Parc Android USSD avec statut live, batterie et qualité réseau.">
+  <p-button label="Nouveau gateway" icon="pi pi-plus" (onClick)="openCreate()" />
+</app-page-header>
+
+<section class="panel mb-4">
+  <div class="filters">
+    <div class="search-field">
+      <i class="pi pi-search"></i>
+      <input pInputText type="search" [(ngModel)]="search" placeholder="Rechercher (nom, device, téléphone…)" />
+    </div>
+    <p-select [options]="operators" [(ngModel)]="operator" optionLabel="label" optionValue="value" (onChange)="load()" />
+    <p-select [options]="statuses" [(ngModel)]="status" optionLabel="label" optionValue="value" (onChange)="load()" />
+    <p-button label="Actualiser" icon="pi pi-refresh" severity="secondary" [outlined]="true" (onClick)="load()" />
+  </div>
+</section>
+
+<section class="panel">
+  <p-table [value]="filteredRows()" styleClass="ops-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Device</th>
+        <th>Opérateur</th>
+        <th>Téléphone</th>
+        <th>PIN USSD</th>
+        <th>Statut</th>
+        <th>Charge</th>
+        <th>Batterie</th>
+        <th>Signal</th>
+        <th>Heartbeat</th>
+        <th></th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-g>
+      <tr>
+        <td>
+          <div class="cell-title">{{ g.name }}</div>
+          <div class="muted mono">{{ g.deviceId }}</div>
+        </td>
+        <td>{{ g.operator }}</td>
+        <td>{{ g.phoneNumber || '—' }}</td>
+        <td>
+          @if (g.ussdPinSet) {
+            <span class="muted" title="PIN configuré">••••</span>
+          } @else {
+            <span class="muted">Non défini</span>
+          }
+        </td>
+        <td><app-status-badge [status]="g.status" /></td>
+        <td>{{ g.loadScore }}%</td>
+        <td><app-meter-bar [value]="g.batteryLevel" kind="battery" /></td>
+        <td><app-meter-bar [value]="g.networkStrength" kind="signal" /></td>
+        <td>{{ g.lastHeartbeatAt | relativeTime }}</td>
+        <td class="actions">
+          <a [routerLink]="['/gateways', g.id]" class="link">Détail</a>
+          <p-button icon="pi pi-pencil" [text]="true" pTooltip="Modifier" (onClick)="openEdit(g)" />
+          <p-button
+            icon="pi pi-ban"
+            [text]="true"
+            severity="warn"
+            pTooltip="Désactiver"
+            [disabled]="g.status === 'DISABLED'"
+            (onClick)="deactivate(g)"
+          />
+          <p-button
+            icon="pi pi-trash"
+            [text]="true"
+            severity="danger"
+            pTooltip="Supprimer définitivement"
+            (onClick)="remove(g)"
+          />
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</section>
+
+<p-dialog
+  styleClass="crud-dialog"
+  [header]="editingId ? 'Modifier gateway' : 'Nouveau gateway'"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [closable]="!saving()"
+  [style]="{ width: '520px' }"
+  [(visible)]="visible"
+>
+  <form class="form-grid" [formGroup]="form" (ngSubmit)="save()">
+    <label class="full">
+      <span>Device ID</span>
+      <input pInputText formControlName="deviceId" placeholder="GW-ORANGE-01" [readonly]="!!editingId || saving()" />
+    </label>
+    <label class="full">
+      <span>Nom</span>
+      <input pInputText formControlName="name" placeholder="Gateway Bamako #1" [readonly]="saving()" />
+    </label>
+    <label>
+      <span>Opérateur</span>
+      <p-select
+        [options]="operatorChoices"
+        formControlName="operator"
+        optionLabel="label"
+        optionValue="value"
+        appendTo="body"
+        [disabled]="!!editingId || saving()"
+      />
+    </label>
+    <label class="full">
+      <span>Téléphone</span>
+      <app-phone-input formControlName="phoneNumber" placeholder="70 00 00 01" />
+    </label>
+    <label class="full">
+      <span>Code PIN USSD (Mobile Money)</span>
+      <input
+        pInputText
+        type="password"
+        inputmode="numeric"
+        autocomplete="new-password"
+        maxlength="6"
+        formControlName="ussdPin"
+        [placeholder]="editingId ? 'Laisser vide pour conserver' : '4 à 6 chiffres'"
+        [readonly]="saving()"
+        (input)="onPinInput()"
+      />
+      <small class="form-hint">
+        Utilisé dans les templates USSD via <code>{{ ussdPinVar }}</code> — distinct du PIN distributeur.
+      </small>
+    </label>
+    @if (editingId) {
+      <label class="full">
+        <span>Statut</span>
+        <p-select
+          [options]="statusChoices"
+          formControlName="status"
+          optionLabel="label"
+          optionValue="value"
+          appendTo="body"
+          [disabled]="saving()"
+        />
+      </label>
+    } @else {
+      <p class="full form-hint">Le gateway démarre hors ligne jusqu’au premier heartbeat de l’app Android.</p>
+    }
+    <div class="full actions">
+      <p-button
+        type="button"
+        label="Annuler"
+        severity="secondary"
+        [text]="true"
+        [disabled]="saving()"
+        (onClick)="visible = false"
+      />
+      <p-button
+        type="submit"
+        label="Enregistrer"
+        icon="pi pi-check"
+        [loading]="saving()"
+        [disabled]="saving() || form.invalid"
+      />
+    </div>
+  </form>
+</p-dialog>

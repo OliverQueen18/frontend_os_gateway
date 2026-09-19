@@ -1,0 +1,16 @@
+<app-page-header title="Statistiques" subtitle="Volumes, répartition gateway et tendances opérationnelles." />
+
+<section class="stats-grid">
+  <article class="panel">
+    <h2>Volumes TX / SMS</h2>
+    <div class="chart-wrap">
+      <p-chart type="bar" [data]="volumeData" [options]="options" height="300px" />
+    </div>
+  </article>
+  <article class="panel">
+    <h2>Répartition santé parc</h2>
+    <div class="chart-wrap">
+      <p-chart type="doughnut" [data]="statusData" [options]="options" height="300px" />
+    </div>
+  </article>
+</section>

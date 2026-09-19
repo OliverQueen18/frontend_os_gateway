@@ -1,0 +1,98 @@
+<p-toast />
+<app-page-header title="SMS" subtitle="Envoi unitaire, bulk, planification et historique." />
+
+<section class="panel">
+  <p-tabs [(value)]="activeTab">
+    <p-tablist>
+      <p-tab value="0">Envoyer</p-tab>
+      <p-tab value="1">Historique</p-tab>
+      <p-tab value="2">Bulk</p-tab>
+      <p-tab value="3">Planifier</p-tab>
+    </p-tablist>
+    <p-tabpanels>
+      <p-tabpanel value="0">
+        <form class="form-grid" [formGroup]="sendForm" (ngSubmit)="send()">
+          <label class="full">
+            <span>Destinataire</span>
+            <app-phone-input formControlName="to" placeholder="70 00 00 00" />
+          </label>
+          <label>
+            <span>Opérateur (optionnel)</span>
+            <input pInputText formControlName="operator" placeholder="ORANGE" />
+          </label>
+          <label class="full">
+            <span>Message</span>
+            <textarea pTextarea rows="4" formControlName="body" class="w-full"></textarea>
+          </label>
+          <p-button type="button" label="Envoyer" icon="pi pi-send" (onClick)="send()" />
+        </form>
+      </p-tabpanel>
+
+      <p-tabpanel value="1">
+        <div class="filters mb-3">
+          <div class="search-field">
+            <i class="pi pi-search"></i>
+            <input pInputText type="search" [(ngModel)]="search" placeholder="Rechercher (destinataire, message…)" />
+          </div>
+        </div>
+        <p-table [value]="filteredHistory()" styleClass="ops-table">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Destinataire</th>
+              <th>Message</th>
+              <th>Statut</th>
+              <th>Créé</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-m>
+            <tr>
+              <td>{{ m.to }}</td>
+              <td class="clamp">{{ m.body }}</td>
+              <td><app-status-badge [status]="m.status" /></td>
+              <td>{{ m.createdAt | relativeTime }}</td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </p-tabpanel>
+
+      <p-tabpanel value="2">
+        <form class="form-grid" [formGroup]="bulkForm" (ngSubmit)="sendBulk()">
+          <label class="full">
+            <span>Destinataires (un par ligne)</span>
+            <textarea
+              pTextarea
+              rows="5"
+              formControlName="recipients"
+              class="w-full"
+              placeholder="+22370000000&#10;+22376000000"
+            ></textarea>
+            <small class="muted">Inclure l’indicatif pays (ex. +223 pour le Mali).</small>
+          </label>
+          <label class="full">
+            <span>Message</span>
+            <textarea pTextarea rows="3" formControlName="body" class="w-full"></textarea>
+          </label>
+          <p-button type="button" label="Envoyer en masse" icon="pi pi-users" (onClick)="sendBulk()" />
+        </form>
+      </p-tabpanel>
+
+      <p-tabpanel value="3">
+        <form class="form-grid" [formGroup]="scheduleForm" (ngSubmit)="schedule()">
+          <label class="full">
+            <span>Destinataire</span>
+            <app-phone-input formControlName="to" placeholder="70 00 00 00" />
+          </label>
+          <label>
+            <span>Date / heure</span>
+            <p-datepicker formControlName="scheduledAt" [showTime]="true" hourFormat="24" dateFormat="dd/mm/yy" [firstDayOfWeek]="1" />
+          </label>
+          <label class="full">
+            <span>Message</span>
+            <textarea pTextarea rows="3" formControlName="body" class="w-full"></textarea>
+          </label>
+          <p-button type="button" label="Planifier" icon="pi pi-clock" (onClick)="schedule()" />
+        </form>
+      </p-tabpanel>
+    </p-tabpanels>
+  </p-tabs>
+</section>

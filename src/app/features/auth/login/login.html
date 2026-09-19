@@ -1,0 +1,43 @@
+<div class="login">
+  <div class="login__atmosphere" aria-hidden="true"></div>
+
+  <section class="login__panel">
+    <div class="login__brand">
+      <img class="login__logo" src="brand/logo-osg.png" alt="OS Gateway" />
+      <p>Console d’exploitation Mobile Money — supervision des gateways, transactions et SMS.</p>
+    </div>
+
+    <form class="login__form" [formGroup]="form" (ngSubmit)="submit()">
+      <label>
+        <span>Identifiant ou téléphone</span>
+        <input pInputText formControlName="username" autocomplete="username" placeholder="admin ou +223…" />
+      </label>
+
+      <label>
+        <span>Mot de passe</span>
+        <input
+          pInputText
+          type="password"
+          formControlName="password"
+          autocomplete="current-password"
+        />
+      </label>
+
+      @if (error()) {
+        <p-message severity="error" [text]="error()" styleClass="w-full" />
+      }
+
+      <p-button
+        type="button"
+        label="Se connecter"
+        icon="pi pi-sign-in"
+        styleClass="w-full"
+        [loading]="loading()"
+        [disabled]="loading()"
+        (onClick)="submit()"
+      />
+
+      <p class="login__hint">Compte démo : <code>admin / Admin@123</code></p>
+    </form>
+  </section>
+</div>

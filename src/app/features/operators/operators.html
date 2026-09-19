@@ -1,0 +1,506 @@
+<p-toast />
+<app-page-header title="Opérateurs" subtitle="Catalogue Mobile Money et modèles USSD associés.">
+  <p-button label="Nouvel opérateur" icon="pi pi-plus" (onClick)="openCreate()" />
+</app-page-header>
+
+<section class="panel mb-4">
+  <div class="filters">
+    <div class="search-field">
+      <i class="pi pi-search"></i>
+      <input pInputText type="search" [(ngModel)]="search" placeholder="Rechercher (code, nom…)" />
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <p-table [value]="filteredOperators()" styleClass="ops-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Logo</th>
+        <th>Code</th>
+        <th>Nom</th>
+        <th>État</th>
+        <th></th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-op>
+      <tr>
+        <td>
+          @if (logoSrc(op); as src) {
+            <img class="op-logo" [src]="src" [alt]="op.name" />
+          } @else {
+            <span class="op-logo op-logo--empty">{{ op.code | slice:0:2 }}</span>
+          }
+        </td>
+        <td class="mono">{{ op.code }}</td>
+        <td>{{ op.name }}</td>
+        <td>
+          <app-status-badge [status]="op.active ? 'ACTIVE' : 'OFFLINE'" [label]="op.active ? 'Actif' : 'Inactif'" />
+        </td>
+        <td class="actions">
+          <p-button label="Modèles" icon="pi pi-code" [text]="true" (onClick)="openTemplates(op)" />
+          <p-button
+            label="Motifs solde"
+            icon="pi pi-wallet"
+            [text]="true"
+            (onClick)="openBalancePatterns(op)"
+          />
+          <p-button icon="pi pi-pencil" [text]="true" pTooltip="Modifier" (onClick)="openEdit(op)" />
+          <p-button
+            icon="pi pi-trash"
+            [text]="true"
+            severity="danger"
+            pTooltip="Supprimer"
+            (onClick)="remove(op)"
+          />
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</section>
+
+<p-dialog
+  styleClass="crud-dialog"
+  [header]="editingId ? 'Modifier opérateur' : 'Nouvel opérateur'"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '520px' }"
+  [(visible)]="formVisible"
+>
+  <form class="form-grid" [formGroup]="form" (ngSubmit)="saveOperator()">
+    <label>
+      <span>Code</span>
+      <input pInputText formControlName="code" placeholder="ORANGE" />
+    </label>
+    <label>
+      <span>Nom</span>
+      <input pInputText formControlName="name" placeholder="Orange Money" />
+    </label>
+    <label class="full">
+      <span>URL logo (optionnel)</span>
+      <input pInputText formControlName="logoUrl" placeholder="https://… ou laisser vide si upload" />
+    </label>
+    <label class="full">
+      <span>Uploader un logo</span>
+      <input type="file" accept="image/*" (change)="onLogoSelected($event)" />
+      @if (logoPreview) {
+        <img class="op-logo op-logo--preview" [src]="logoPreview" alt="Aperçu logo" />
+      }
+      @if (!editingId) {
+        <small class="muted">Le fichier sera envoyé juste après la création.</small>
+      }
+    </label>
+    <label class="switch-row full">
+      <span>Actif</span>
+      <p-toggleswitch formControlName="active" />
+    </label>
+    <div class="full actions">
+      <p-button type="button" label="Annuler" severity="secondary" [text]="true" (onClick)="formVisible = false" />
+      <p-button type="submit" label="Enregistrer" icon="pi pi-check" />
+    </div>
+  </form>
+</p-dialog>
+
+<p-dialog
+  styleClass="crud-dialog"
+  header="Modèles USSD"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [(visible)]="templatesVisible"
+  [style]="{ width: 'min(920px, 96vw)' }"
+>
+  <div class="panel__head mb-3">
+    <p class="muted" style="margin:0">Opérateur {{ selectedOperator?.code }}</p>
+    <p-button label="Nouveau modèle" icon="pi pi-plus" size="small" (onClick)="openCreateTemplate()" />
+  </div>
+  <div class="template-list">
+    @for (t of templates(); track t.id) {
+      <article class="template-card">
+        <header>
+          <strong>{{ t.name }}</strong>
+          <span class="muted">{{ txTypeLabel(t.transactionType) || '—' }}</span>
+          <span class="actions">
+            <p-button icon="pi pi-pencil" [text]="true" size="small" (onClick)="openEditTemplate(t)" />
+            <p-button icon="pi pi-trash" [text]="true" size="small" severity="danger" (onClick)="removeTemplate(t)" />
+          </span>
+        </header>
+        @if (t.steps?.length) {
+          <ol class="step-preview">
+            @for (s of t.steps; track $index) {
+              <li>
+                <span class="step-action">{{ stepLabel(s.action) }}</span>
+                @if (s.expression) {
+                  <code>{{ s.expression }}</code>
+                }
+                @if (s.expectedPattern) {
+                  <span class="muted">motif {{ s.expectedPattern }}</span>
+                }
+              </li>
+            }
+          </ol>
+        } @else {
+          <pre>{{ t.template || t.description || '—' }}</pre>
+        }
+      </article>
+    } @empty {
+      <p class="muted">Aucun modèle</p>
+    }
+  </div>
+</p-dialog>
+
+<p-dialog
+  styleClass="crud-dialog template-form-dialog"
+  [header]="editingTemplateId ? 'Modifier le modèle USSD' : 'Nouveau modèle USSD'"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  appendTo="body"
+  [baseZIndex]="12000"
+  [closable]="!savingTemplate"
+  [style]="{ width: 'min(1680px, 98vw)', maxWidth: '98vw' }"
+  [contentStyle]="{ maxHeight: 'min(90vh, 1100px)', overflow: 'auto' }"
+  [(visible)]="templateFormVisible"
+>
+  <form class="template-form" [formGroup]="templateForm" (ngSubmit)="saveTemplate()">
+    <div class="template-form__meta">
+      <label>
+        <span>Nom du modèle</span>
+        <input pInputText formControlName="name" placeholder="Dépôt Orange" />
+      </label>
+      <label>
+        <span>Type d’opération</span>
+        <p-select
+          [options]="typeChoicesForForm()"
+          formControlName="transactionType"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Choisir un type"
+          [filter]="true"
+          appendTo="body"
+        />
+      </label>
+      <label class="template-form__desc">
+        <span>Description</span>
+        <input pInputText formControlName="description" placeholder="Optionnel — ex. dépôt client avec confirmation du numéro" />
+      </label>
+      <label class="switch-row template-form__active">
+        <span>Actif</span>
+        <p-toggleswitch formControlName="active" />
+      </label>
+    </div>
+
+    <div class="steps-editor">
+      <div class="steps-editor__head">
+        <div>
+          <strong>Scénario USSD</strong>
+          <p class="muted steps-editor__help">
+            Variables disponibles :
+            <code>{{ varPhone }}</code> (téléphone),
+            <code>{{ varAmount }}</code> (montant),
+            <code>{{ varPin }}</code> (PIN du gateway).
+            Pour confirmer le numéro client, ajoutez une étape
+            <strong>Répondre</strong> avec <code>{{ varPhone }}</code>.
+            Pour un retrait Orange Money, ajoutez
+            <strong>Attendre SMS de confirmation</strong>
+            (source de vérité = SMS gateway, 120s).
+            Pour enchaîner un autre modèle (ex. SOLDE avant/après un dépôt),
+            utilisez <strong>Exécuter un autre modèle</strong> puis
+            <strong>Vérifier le solde</strong>.
+          </p>
+        </div>
+        <div class="steps-editor__actions">
+          <p-button
+            type="button"
+            label="Confirmer n°"
+            icon="pi pi-phone"
+            size="small"
+            severity="secondary"
+            [outlined]="true"
+            [pTooltip]="phoneConfirmTip"
+            (onClick)="addPhoneConfirmStep()"
+          />
+          <p-button
+            type="button"
+            label="Fermer dial."
+            icon="pi pi-check"
+            size="small"
+            severity="secondary"
+            [outlined]="true"
+            pTooltip="Clique OK (succès) ou Annuler (échec / solde insuffisant)"
+            (onClick)="addDismissDialogStep()"
+          />
+          <p-button
+            type="button"
+            label="SMS conf."
+            icon="pi pi-envelope"
+            size="small"
+            severity="secondary"
+            [outlined]="true"
+            [pTooltip]="smsConfirmTip"
+            (onClick)="addSmsConfirmStep()"
+          />
+          <p-button
+            type="button"
+            label="Montant"
+            icon="pi pi-money-bill"
+            size="small"
+            severity="secondary"
+            [outlined]="true"
+            (onClick)="addAmountStep()"
+          />
+          <p-button
+            type="button"
+            label="Code PIN"
+            icon="pi pi-key"
+            size="small"
+            severity="secondary"
+            [outlined]="true"
+            (onClick)="addPinStep()"
+          />
+          <p-button
+            type="button"
+            label="Solde avant"
+            icon="pi pi-wallet"
+            size="small"
+            severity="secondary"
+            [outlined]="true"
+            pTooltip="Exécute le modèle SOLDE et enregistre le solde avant"
+            (onClick)="addRunTemplateStep('gateway_balance_before')"
+          />
+          <p-button
+            type="button"
+            label="Solde après"
+            icon="pi pi-wallet"
+            size="small"
+            severity="secondary"
+            [outlined]="true"
+            pTooltip="Exécute le modèle SOLDE et enregistre le solde après"
+            (onClick)="addRunTemplateStep('gateway_balance_after')"
+          />
+          <p-button
+            type="button"
+            label="Vérif. solde"
+            icon="pi pi-check-circle"
+            size="small"
+            severity="secondary"
+            [outlined]="true"
+            pTooltip="Compare solde avant/après au montant pour confirmer ou infirmer"
+            (onClick)="addVerifyBalanceStep()"
+          />
+          <p-button
+            type="button"
+            label="Ajouter une étape"
+            icon="pi pi-plus"
+            size="small"
+            (onClick)="addStep()"
+          />
+        </div>
+      </div>
+
+      <div formArrayName="steps" class="steps-list">
+        @for (ctrl of steps.controls; track stepTrackKey(ctrl); let i = $index) {
+          <div class="step-row" [formGroupName]="i">
+            <div class="step-row__index" [attr.aria-label]="'Étape ' + (i + 1)">{{ i + 1 }}</div>
+            <div class="step-row__fields">
+              <label class="step-row__action">
+                <span>Action</span>
+                <p-select
+                  [options]="stepActions"
+                  formControlName="action"
+                  optionLabel="label"
+                  optionValue="value"
+                  appendTo="body"
+                />
+              </label>
+              <label class="step-row__expr">
+                <span>{{ stepExprLabel(ctrl.controls.action.value) }}</span>
+                @if (ctrl.controls.action.value === 'RUN_TEMPLATE') {
+                  <p-select
+                    [options]="callableTemplateTypes()"
+                    formControlName="expression"
+                    optionLabel="label"
+                    optionValue="value"
+                    placeholder="SOLDE"
+                    appendTo="body"
+                  />
+                } @else {
+                  <input
+                    pInputText
+                    formControlName="expression"
+                    [placeholder]="stepExprPlaceholder(ctrl.controls.action.value)"
+                  />
+                }
+              </label>
+              <label class="step-row__pattern">
+                <span>{{ stepPatternLabel(ctrl.controls.action.value) }}</span>
+                <input
+                  pInputText
+                  formControlName="expectedPattern"
+                  [placeholder]="stepPatternPlaceholder(ctrl.controls.action.value)"
+                />
+              </label>
+              <label class="step-row__wait">
+                <span>Attente (ms)</span>
+                <input
+                  pInputText
+                  formControlName="waitMillis"
+                  inputmode="numeric"
+                  [placeholder]="stepWaitPlaceholder(ctrl.controls.action.value)"
+                />
+              </label>
+              <label class="step-row__extract">
+                <span>{{ ctrl.controls.action.value === 'RUN_TEMPLATE' ? 'Capturer dans' : 'Variable extraite' }}</span>
+                @if (ctrl.controls.action.value === 'RUN_TEMPLATE') {
+                  <p-select
+                    [options]="runTemplateCaptureVars"
+                    formControlName="extractVar"
+                    optionLabel="label"
+                    optionValue="value"
+                    placeholder="Variable"
+                    appendTo="body"
+                  />
+                } @else {
+                  <input pInputText formControlName="extractVar" placeholder="ex. référence" />
+                }
+              </label>
+            </div>
+            <div class="step-row__tools" role="group" [attr.aria-label]="'Actions étape ' + (i + 1)">
+              <button
+                type="button"
+                class="step-tool-btn"
+                title="Monter"
+                [disabled]="i === 0"
+                (click)="moveStep(i, -1)"
+              >
+                <i class="pi pi-arrow-up" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="step-tool-btn"
+                title="Descendre"
+                [disabled]="i === steps.length - 1"
+                (click)="moveStep(i, 1)"
+              >
+                <i class="pi pi-arrow-down" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="step-tool-btn step-tool-btn--danger"
+                title="Supprimer"
+                [disabled]="steps.length <= 1"
+                (click)="removeStep(i)"
+              >
+                <i class="pi pi-trash" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="template-form__footer actions">
+      <p-button
+        type="button"
+        label="Annuler"
+        severity="secondary"
+        [text]="true"
+        [disabled]="savingTemplate"
+        (onClick)="templateFormVisible = false"
+      />
+      <p-button
+        type="button"
+        label="Enregistrer"
+        icon="pi pi-check"
+        [loading]="savingTemplate"
+        [disabled]="savingTemplate"
+        (onClick)="saveTemplate()"
+      />
+    </div>
+  </form>
+</p-dialog>
+
+<p-dialog
+  styleClass="crud-dialog"
+  header="Motifs extraction solde"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [(visible)]="balancePatternsVisible"
+  [style]="{ width: 'min(920px, 96vw)' }"
+>
+  <p class="muted mb-3">
+    Opérateur <strong>{{ selectedOperator?.code }}</strong> — regex Java (groupe 1 = montant).
+    Utilisés pour lire le solde Principal / Bonus UV depuis le dialogue USSD et le SMS.
+  </p>
+  <div class="panel__head mb-3">
+    <p-button label="Ajouter un motif" icon="pi pi-plus" size="small" (onClick)="addBalancePattern()" />
+  </div>
+  <div class="template-list">
+    @for (row of balancePatterns(); track $index) {
+      <article class="template-card">
+        <div class="form-grid">
+          <label>
+            <span>Type</span>
+            <select [(ngModel)]="row.fieldType" [ngModelOptions]="{ standalone: true }">
+              <option value="PRINCIPAL">PRINCIPAL</option>
+              <option value="BONUS_UV">BONUS_UV</option>
+            </select>
+          </label>
+          <label>
+            <span>Priorité</span>
+            <input pInputText type="number" [(ngModel)]="row.priority" [ngModelOptions]="{ standalone: true }" />
+          </label>
+          <label class="full">
+            <span>Regex (groupe 1 = montant)</span>
+            <input
+              pInputText
+              [(ngModel)]="row.regexPattern"
+              [ngModelOptions]="{ standalone: true }"
+              placeholder="(?i)principal\s*:?\s*([0-9][0-9\s.,]*)"
+            />
+          </label>
+          <label class="full">
+            <span>Description</span>
+            <input
+              pInputText
+              [(ngModel)]="row.description"
+              [ngModelOptions]="{ standalone: true }"
+              placeholder="Ligne Principal dialogue/SMS"
+            />
+          </label>
+        </div>
+        <div class="actions mt-2">
+          <p-button
+            icon="pi pi-trash"
+            severity="danger"
+            [text]="true"
+            size="small"
+            (onClick)="removeBalancePattern($index)"
+          />
+        </div>
+      </article>
+    } @empty {
+      <p class="muted">Aucun motif — les valeurs par défaut de l'application seront utilisées.</p>
+    }
+  </div>
+  <div class="template-form__footer actions mt-3">
+    <p-button
+      type="button"
+      label="Fermer"
+      severity="secondary"
+      [text]="true"
+      [disabled]="balancePatternSaving"
+      (onClick)="balancePatternsVisible = false"
+    />
+    <p-button
+      type="button"
+      label="Enregistrer"
+      icon="pi pi-check"
+      [loading]="balancePatternSaving"
+      [disabled]="balancePatternSaving"
+      (onClick)="saveBalancePatterns()"
+    />
+  </div>
+</p-dialog>

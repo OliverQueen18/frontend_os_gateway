@@ -1,0 +1,85 @@
+<p-toast />
+<app-page-header
+  title="Motifs d’annulation"
+  subtitle="Catégoriser les raisons d’annulation des transactions."
+>
+  <p-button label="Nouveau motif" icon="pi pi-plus" (onClick)="openCreate()" />
+</app-page-header>
+
+<section class="panel mb-4">
+  <div class="filters">
+    <div class="search-field">
+      <i class="pi pi-search"></i>
+      <input pInputText type="search" [(ngModel)]="search" placeholder="Rechercher (code, libellé…)" />
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <p-table [value]="filtered()" styleClass="ops-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Code</th>
+        <th>Libellé</th>
+        <th>Description</th>
+        <th>État</th>
+        <th></th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-row>
+      <tr>
+        <td class="mono">{{ row.code }}</td>
+        <td class="cell-title">{{ row.label }}</td>
+        <td class="muted">{{ row.description || '—' }}</td>
+        <td>
+          <app-status-badge
+            [status]="row.active ? 'ACTIVE' : 'OFFLINE'"
+            [label]="row.active ? 'Actif' : 'Inactif'"
+          />
+        </td>
+        <td class="actions">
+          <p-button icon="pi pi-pencil" [text]="true" (onClick)="openEdit(row)" />
+          <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="remove(row)" />
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="5" class="empty-row">Aucun motif d’annulation.</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</section>
+
+<p-dialog
+  styleClass="crud-dialog"
+  [header]="editingId ? 'Modifier le motif' : 'Nouveau motif'"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '480px' }"
+  [(visible)]="dialogVisible"
+>
+  <form class="form-grid" [formGroup]="form" (ngSubmit)="save()">
+    <label>
+      <span>Code</span>
+      <input pInputText formControlName="code" placeholder="CLIENT_REQUEST" />
+    </label>
+    <label>
+      <span>Libellé</span>
+      <input pInputText formControlName="label" placeholder="Demande client" />
+    </label>
+    <label class="full">
+      <span>Description</span>
+      <textarea pTextarea rows="3" formControlName="description"></textarea>
+    </label>
+    <label class="full switch-row">
+      <span>Actif</span>
+      <p-toggleswitch formControlName="active" />
+    </label>
+    <div class="full actions">
+      <p-button type="button" label="Annuler" severity="secondary" [text]="true" (onClick)="dialogVisible = false" />
+      <p-button type="submit" label="Enregistrer" icon="pi pi-check" />
+    </div>
+  </form>
+</p-dialog>

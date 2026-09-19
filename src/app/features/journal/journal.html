@@ -1,0 +1,35 @@
+<app-page-header title="Journal d’audit" subtitle="Traçabilité des actions sensibles sur la plateforme." />
+
+<section class="panel mb-4">
+  <div class="filters">
+    <div class="search-field">
+      <i class="pi pi-search"></i>
+      <input pInputText type="search" [(ngModel)]="search" placeholder="Rechercher (acteur, action…)" />
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <p-table [value]="filteredRows()" styleClass="ops-table" [paginator]="true" [rows]="15">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Quand</th>
+        <th>Acteur</th>
+        <th>Action</th>
+        <th>Ressource</th>
+        <th>Détails</th>
+        <th>IP</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-e>
+      <tr>
+        <td>{{ e.createdAt | relativeTime }}</td>
+        <td>{{ e.actor }}</td>
+        <td class="mono">{{ e.action }}</td>
+        <td class="mono">{{ e.resource }}</td>
+        <td>{{ e.details }}</td>
+        <td class="mono">{{ e.ip }}</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</section>

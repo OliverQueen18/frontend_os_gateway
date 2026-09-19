@@ -1,0 +1,671 @@
+<p-toast />
+<app-page-header
+  title="Distributeurs"
+  subtitle="Identité, solde UV, commissions générées et versements."
+>
+  <p-button label="Nouveau distributeur" icon="pi pi-plus" (onClick)="openCreate()" />
+</app-page-header>
+
+<section class="panel">
+  <div class="filters">
+    <div class="search-field">
+      <i class="pi pi-search"></i>
+      <input pInputText type="search" [(ngModel)]="search" placeholder="Rechercher (code, nom, téléphone…)" />
+    </div>
+    <p-select
+      [options]="registrationStatusFilters"
+      [(ngModel)]="registrationStatusFilter"
+      optionLabel="label"
+      optionValue="value"
+      placeholder="Statut inscription"
+      (onChange)="reload()"
+      appendTo="body"
+    />
+  </div>
+  <p-table [value]="filteredRows()" styleClass="ops-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Code</th>
+        <th>Identité</th>
+        <th>Login</th>
+        <th>Contact</th>
+        <th>Adresse</th>
+        <th>Solde UV</th>
+        <th>Commission due</th>
+        <th>Statut inscription</th>
+        <th>Frais payés</th>
+        <th>PIN</th>
+        <th>Créé le</th>
+        <th>État</th>
+        <th></th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-d>
+      <tr>
+        <td class="mono">{{ d.code }}</td>
+        <td>
+          <div class="cell-title">{{ d.firstName }} {{ d.lastName }}</div>
+          <div class="muted">{{ d.name }}</div>
+        </td>
+        <td class="mono">{{ d.username || '—' }}</td>
+        <td>
+          <div>{{ d.email || '—' }}</div>
+          <div class="muted">{{ d.phone || '—' }}</div>
+        </td>
+        <td class="clamp">{{ d.address || '—' }}</td>
+        <td class="tabular cell-title">{{ d.balance | number:'1.0-0' }} XOF</td>
+        <td class="tabular">
+          <div class="cell-title">{{ unpaidOf(d) | number:'1.0-0' }} XOF</div>
+          <div class="muted">gagné {{ earnedOf(d) | number:'1.0-0' }}</div>
+        </td>
+        <td>
+          <app-status-badge
+            [status]="registrationStatusTone(d.registrationStatus)"
+            [label]="registrationStatusLabel(d.registrationStatus)"
+          />
+        </td>
+        <td>
+          <app-status-badge
+            [status]="d.registrationFeePaid ? 'ACTIVE' : 'WARNING'"
+            [label]="d.registrationFeePaid ? 'Oui' : 'Non'"
+          />
+        </td>
+        <td>
+          <app-status-badge
+            [status]="d.hasPin ? 'ACTIVE' : 'WARNING'"
+            [label]="d.hasPin ? 'Défini' : 'À définir'"
+          />
+        </td>
+        <td>{{ d.createdAt ? (d.createdAt | date:'dd/MM/yyyy HH:mm') : '—' }}</td>
+        <td>
+          <app-status-badge [status]="d.active ? 'ACTIVE' : 'OFFLINE'" [label]="d.active ? 'Actif' : 'Inactif'" />
+        </td>
+        <td class="actions">
+          <p-button
+            icon="pi pi-eye"
+            [text]="true"
+            pTooltip="Dossier inscription / KYC"
+            (onClick)="openReview(d)"
+          />
+          <p-button icon="pi pi-wallet" [text]="true" pTooltip="Recharger UV" (onClick)="openUv(d)" />
+          <p-button icon="pi pi-history" [text]="true" pTooltip="Historique UV" (onClick)="openHistory(d)" />
+          <p-button
+            icon="pi pi-money-bill"
+            [text]="true"
+            pTooltip="Verser commission"
+            [disabled]="!d.active || unpaidOf(d) <= 0"
+            (onClick)="openCommissionPay(d)"
+          />
+          <p-button
+            icon="pi pi-list"
+            [text]="true"
+            pTooltip="Historique versements commission"
+            (onClick)="openCommissionHistory(d)"
+          />
+          <p-button icon="pi pi-pencil" [text]="true" pTooltip="Modifier" (onClick)="openEdit(d)" />
+          <p-button
+            icon="pi pi-ban"
+            [text]="true"
+            severity="warn"
+            pTooltip="Désactiver"
+            [disabled]="!d.active"
+            (onClick)="deactivate(d)"
+          />
+          <p-button
+            icon="pi pi-trash"
+            [text]="true"
+            severity="danger"
+            pTooltip="Supprimer définitivement"
+            (onClick)="remove(d)"
+          />
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</section>
+
+<p-dialog
+  styleClass="crud-dialog"
+  [header]="editingId ? 'Modifier distributeur' : 'Nouveau distributeur'"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '780px' }"
+  [(visible)]="visible"
+  (onShow)="onDistributorDialogShow()"
+>
+  <form class="form-grid distributor-form" [formGroup]="form" (ngSubmit)="save()">
+    <p class="full form-section-title">Identifiants</p>
+    <div class="full distributor-id-row">
+      <label>
+        <span>Code</span>
+        <input
+          pInputText
+          formControlName="code"
+          placeholder="DIST-001"
+          (input)="onCodeInput()"
+        />
+        <small class="form-hint field-slot-hint">
+          @if (!editingId) {
+            Proposé automatiquement — modifiable
+          }
+        </small>
+      </label>
+      <label>
+        <span>Login</span>
+        <input
+          pInputText
+          formControlName="username"
+          placeholder="dist001"
+          autocomplete="username"
+          (input)="onUsernameInput()"
+        />
+        @if (form.controls.username.touched && form.controls.username.invalid) {
+          <small class="field-error field-slot-hint">3+ caractères (lettres, chiffres, . _ -)</small>
+        } @else {
+          <small class="form-hint field-slot-hint">
+            @if (!editingId) {
+              Proposé depuis le code — modifiable
+            }
+          </small>
+        }
+      </label>
+    </div>
+
+    <p class="full form-section-title">Identité</p>
+    <label class="full">
+      <span>Nom agence</span>
+      <input pInputText formControlName="name" placeholder="Agence Bamako Centre" />
+    </label>
+    <label>
+      <span>Prénom</span>
+      <input pInputText formControlName="firstName" />
+    </label>
+    <label>
+      <span>Nom</span>
+      <input pInputText formControlName="lastName" />
+    </label>
+    <label>
+      <span>Email</span>
+      <input pInputText formControlName="email" type="email" />
+    </label>
+    <label>
+      <span>N° téléphone</span>
+      <app-phone-input formControlName="phone" placeholder="70 00 00 00" />
+      @if (form.controls.phone.touched && form.controls.phone.invalid) {
+        <small class="field-error">Indiquez le numéro national (ex. 70 00 00 00)</small>
+      }
+    </label>
+
+    <p class="full form-section-title">Localisation</p>
+    <div class="full distributor-map-field">
+      <app-address-map-picker
+        #mapPicker
+        [address]="form.controls.address.value"
+        [latitude]="form.controls.latitude.value"
+        [longitude]="form.controls.longitude.value"
+        (geoChange)="onGeoChange($event)"
+      />
+    </div>
+
+    <p class="full form-section-title">Documents légaux</p>
+    <label>
+      <span>RCCM</span>
+      <input pInputText formControlName="rccm" placeholder="N° RCCM" />
+    </label>
+    <label>
+      <span>NIF</span>
+      <input pInputText formControlName="nif" placeholder="N° NIF" />
+    </label>
+    <label class="full">
+      <span>NINA</span>
+      <input pInputText formControlName="nina" placeholder="N° NINA / biométrique" />
+    </label>
+
+    <p class="full form-section-title">Accès & sécurité</p>
+    <label>
+      <span>Code PIN transaction {{ editingId ? '(optionnel — vide = inchangé)' : '(obligatoire)' }}</span>
+      <input
+        pInputText
+        type="text"
+        inputmode="numeric"
+        maxlength="6"
+        formControlName="pin"
+        placeholder="Ex. 1234"
+        autocomplete="off"
+        (input)="onPinInput($event)"
+      />
+      @if (form.controls.pin.touched && form.controls.pin.invalid) {
+        <small class="field-error">4 à 6 chiffres requis</small>
+      }
+    </label>
+    <label>
+      <span>Mot de passe connexion (optionnel)</span>
+      <input
+        pInputText
+        type="password"
+        formControlName="password"
+        [placeholder]="editingId ? 'Laisser vide pour conserver' : 'Défaut: ChangeMe@123'"
+        autocomplete="new-password"
+      />
+    </label>
+    <label class="switch-row full">
+      <span>Compte actif</span>
+      <p-toggleswitch formControlName="active" />
+    </label>
+
+    <p class="full form-hint">
+      Un compte utilisateur (rôle Distributeur) est créé automatiquement à l’enregistrement.
+      Le PIN est exigé à chaque transaction. Les commissions se configurent dans Types d’opérations.
+    </p>
+    <div class="full actions">
+      <p-button type="button" label="Annuler" severity="secondary" [text]="true" (onClick)="visible = false" />
+      <p-button type="submit" label="Enregistrer" icon="pi pi-check" [loading]="saving()" />
+    </div>
+  </form>
+</p-dialog>
+
+<p-dialog
+  styleClass="crud-dialog"
+  header="Achat UV"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '520px' }"
+  [(visible)]="uvVisible"
+>
+  @if (uvDistributor; as d) {
+    <p class="form-hint mb-3">
+      {{ d.firstName }} {{ d.lastName }} — solde actuel
+      <strong>{{ d.balance | number:'1.0-0' }} XOF</strong>
+    </p>
+  }
+  <form class="form-grid" [formGroup]="uvForm" (ngSubmit)="saveUv()">
+    <label class="full">
+      <span>Montant UV (XOF)</span>
+      <p-inputnumber formControlName="amount" [min]="1" mode="decimal" locale="fr-FR" [useGrouping]="true" />
+    </label>
+    <label class="full">
+      <span>Mode de paiement</span>
+      <p-select
+        [options]="paymentMethods"
+        formControlName="paymentMethod"
+        optionLabel="label"
+        optionValue="value"
+        appendTo="body"
+      />
+    </label>
+    @if (uvForm.controls.paymentMethod.value === 'GATEWAY_DEPOSIT') {
+      <label class="full">
+        <span>Gateway de dépôt</span>
+        <p-select
+          [options]="gateways()"
+          formControlName="gatewayId"
+          optionLabel="name"
+          optionValue="id"
+          placeholder="Choisir un gateway"
+          appendTo="body"
+        />
+      </label>
+    }
+    <label class="full">
+      <span>Note</span>
+      <input pInputText formControlName="note" placeholder="Reçu caisse #…" />
+    </label>
+    <div class="full actions">
+      <p-button type="button" label="Annuler" severity="secondary" [text]="true" (onClick)="uvVisible = false" />
+      <p-button type="submit" label="Créditer le solde" icon="pi pi-wallet" />
+    </div>
+  </form>
+</p-dialog>
+
+<p-dialog
+  styleClass="crud-dialog"
+  header="Historique achats UV"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '640px' }"
+  [(visible)]="historyVisible"
+>
+  <p-table [value]="purchases()" styleClass="ops-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Réf.</th>
+        <th>Montant</th>
+        <th>Mode</th>
+        <th>Solde après</th>
+        <th>Date</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-p>
+      <tr>
+        <td class="mono">{{ p.reference }}</td>
+        <td class="tabular">{{ p.amount | number:'1.0-0' }}</td>
+        <td>{{ p.paymentMethod === 'CASH' ? 'Espèces' : 'Gateway' }}</td>
+        <td class="tabular">{{ p.balanceAfter | number:'1.0-0' }}</td>
+        <td>{{ p.createdAt | date:'short' }}</td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr><td colspan="5" class="muted">Aucun achat UV</td></tr>
+    </ng-template>
+  </p-table>
+</p-dialog>
+
+<p-dialog
+  styleClass="crud-dialog"
+  header="Verser la commission"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '540px' }"
+  [(visible)]="commissionPayVisible"
+>
+  @if (commissionDistributor; as d) {
+    <p class="form-hint mb-2">
+      {{ d.firstName }} {{ d.lastName }} ({{ d.code }})
+    </p>
+  }
+  @if (commissionBalance(); as bal) {
+    <div class="form-hint mb-3">
+      Gagné <strong>{{ bal.earned | number:'1.0-0' }} XOF</strong>
+      · déjà versé <strong>{{ bal.paid | number:'1.0-0' }} XOF</strong>
+      · dû <strong>{{ bal.unpaid | number:'1.0-0' }} XOF</strong>
+    </div>
+  }
+  <form class="form-grid" [formGroup]="commissionForm" (ngSubmit)="saveCommissionPayout()">
+    <label class="full">
+      <span>Montant à verser (XOF)</span>
+      <p-inputnumber formControlName="amount" [min]="1" mode="decimal" locale="fr-FR" [useGrouping]="true" />
+    </label>
+    <div class="full actions" style="justify-content: flex-start; margin-top: -0.5rem">
+      <p-button
+        type="button"
+        label="Payer tout le dû"
+        icon="pi pi-check-circle"
+        severity="secondary"
+        [text]="true"
+        [disabled]="(commissionBalance()?.unpaid ?? 0) <= 0"
+        (onClick)="payAllCommission()"
+      />
+    </div>
+    <label class="full">
+      <span>Mode de paiement</span>
+      <p-select
+        [options]="commissionPaymentMethods"
+        formControlName="paymentMethod"
+        optionLabel="label"
+        optionValue="value"
+        appendTo="body"
+      />
+    </label>
+    <label class="full">
+      <span>Référence (optionnel)</span>
+      <input pInputText formControlName="reference" placeholder="Reçu / virement #" />
+    </label>
+    <label class="full">
+      <span>Note</span>
+      <input pInputText formControlName="note" placeholder="Commentaire…" />
+    </label>
+    <div class="full actions">
+      <p-button type="button" label="Annuler" severity="secondary" [text]="true" (onClick)="commissionPayVisible = false" />
+      <p-button
+        type="submit"
+        label="Enregistrer le versement"
+        icon="pi pi-money-bill"
+        [loading]="payingCommission()"
+        [disabled]="(commissionBalance()?.unpaid ?? 0) <= 0"
+      />
+    </div>
+  </form>
+</p-dialog>
+
+<p-dialog
+  styleClass="crud-dialog"
+  header="Historique versements commission"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '720px' }"
+  [(visible)]="commissionHistoryVisible"
+>
+  @if (commissionDistributor; as d) {
+    <p class="form-hint mb-3">{{ d.firstName }} {{ d.lastName }} — {{ d.code }}</p>
+  }
+  <p-table [value]="commissionPayouts()" styleClass="ops-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Réf.</th>
+        <th>Montant</th>
+        <th>Mode</th>
+        <th>Reste dû</th>
+        <th>Date</th>
+        <th>Note</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-p>
+      <tr>
+        <td class="mono">{{ p.reference }}</td>
+        <td class="tabular">{{ p.amount | number:'1.0-0' }}</td>
+        <td>{{ payoutMethodLabel(p.paymentMethod) }}</td>
+        <td class="tabular">{{ p.unpaidAfter | number:'1.0-0' }}</td>
+        <td>{{ p.paidAt | date:'short' }}</td>
+        <td class="clamp">{{ p.note || '—' }}</td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr><td colspan="6" class="muted">Aucun versement</td></tr>
+    </ng-template>
+  </p-table>
+</p-dialog>
+
+<p-dialog
+  styleClass="crud-dialog"
+  header="Dossier inscription / KYC"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '720px' }"
+  [(visible)]="reviewVisible"
+>
+  @if (reviewDistributor; as d) {
+    <div class="form-grid">
+      <div class="full">
+        <div class="cell-title">{{ d.firstName }} {{ d.lastName }} — {{ d.code }}</div>
+        <div class="muted">{{ d.name }} · {{ d.email }} · {{ d.phone || '—' }}</div>
+      </div>
+      <div>
+        <span class="muted">Statut inscription</span>
+        <div>
+          <app-status-badge
+            [status]="registrationStatusTone(d.registrationStatus)"
+            [label]="registrationStatusLabel(d.registrationStatus)"
+          />
+        </div>
+      </div>
+      <div>
+        <span class="muted">Compte</span>
+        <div>
+          <app-status-badge
+            [status]="d.active ? 'ACTIVE' : 'OFFLINE'"
+            [label]="d.active ? 'Actif' : 'Inactif'"
+          />
+        </div>
+      </div>
+      <div>
+        <span class="muted">RCCM</span>
+        <div class="mono">{{ d.rccm || '—' }}</div>
+      </div>
+      <div>
+        <span class="muted">NIF</span>
+        <div class="mono">{{ d.nif || '—' }}</div>
+      </div>
+      <div>
+        <span class="muted">NINA</span>
+        <div class="mono">{{ d.nina || '—' }}</div>
+      </div>
+      <div>
+        <span class="muted">Adresse</span>
+        <div>{{ d.address || '—' }}</div>
+      </div>
+      @if (d.latitude != null && d.longitude != null) {
+        <div class="full">
+          <span class="muted">Localisation GPS</span>
+          <div class="mono">{{ d.latitude }}, {{ d.longitude }}</div>
+          <iframe
+            class="dist-map-frame"
+            title="Carte distributeur"
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"
+            [src]="osmEmbedUrl(d.latitude, d.longitude)"
+          ></iframe>
+        </div>
+      }
+      <div>
+        <span class="muted">Frais d’inscription</span>
+        <div class="tabular">
+          {{ d.registrationFeeAmount != null ? (d.registrationFeeAmount | number:'1.0-0') + ' XOF' : '—' }}
+        </div>
+      </div>
+      <div>
+        <span class="muted">Frais payés</span>
+        <div>
+          <app-status-badge
+            [status]="d.registrationFeePaid ? 'ACTIVE' : 'WARNING'"
+            [label]="d.registrationFeePaid ? 'Oui' : 'Non'"
+          />
+        </div>
+      </div>
+      @if (d.registrationFeePaidAt) {
+        <div>
+          <span class="muted">Payé le</span>
+          <div>{{ d.registrationFeePaidAt | date:'dd/MM/yyyy HH:mm' }}</div>
+        </div>
+      }
+      @if (d.registrationFeePaymentRef) {
+        <div>
+          <span class="muted">Réf. paiement</span>
+          <div class="mono">{{ d.registrationFeePaymentRef }}</div>
+        </div>
+      }
+      @if (d.rejectionReason) {
+        <div class="full">
+          <span class="muted">Motif de rejet</span>
+          <div>{{ d.rejectionReason }}</div>
+        </div>
+      }
+      <div class="full">
+        <span class="muted">Pièces jointes ({{ attachments().length }})</span>
+        <p-table [value]="attachments()" styleClass="ops-table">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Type</th>
+              <th>Fichier</th>
+              <th>Date</th>
+              <th></th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-a>
+            <tr>
+              <td>{{ docTypeLabel(a.docType) }}</td>
+              <td class="clamp">{{ a.fileName }}</td>
+              <td>{{ a.createdAt ? (a.createdAt | date:'short') : '—' }}</td>
+              <td class="actions">
+                <p-button
+                  icon="pi pi-download"
+                  [text]="true"
+                  pTooltip="Télécharger"
+                  (onClick)="downloadAttachment(a)"
+                />
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr><td colspan="4" class="muted">Aucune pièce jointe</td></tr>
+          </ng-template>
+        </p-table>
+      </div>
+      <label>
+        <span>Type de document</span>
+        <p-select
+          [options]="docTypes"
+          [(ngModel)]="uploadDocType"
+          optionLabel="label"
+          optionValue="value"
+          appendTo="body"
+        />
+      </label>
+      <label>
+        <span>Téléverser une pièce</span>
+        <input
+          type="file"
+          (change)="onAttachmentSelected($event)"
+          [disabled]="uploadingAttachment()"
+        />
+      </label>
+      @if (canReview(d)) {
+        <div class="full actions">
+          <p-button
+            type="button"
+            label="Rejeter"
+            icon="pi pi-times"
+            severity="danger"
+            [outlined]="true"
+            [loading]="reviewing()"
+            (onClick)="openReject()"
+          />
+          <p-button
+            type="button"
+            label="Approuver"
+            icon="pi pi-check"
+            [loading]="reviewing()"
+            [disabled]="!canApprove(d)"
+            pTooltip="Les frais doivent être payés pour approuver"
+            [tooltipDisabled]="canApprove(d)"
+            (onClick)="approveRegistration()"
+          />
+        </div>
+      }
+    </div>
+  }
+</p-dialog>
+
+<p-dialog
+  styleClass="crud-dialog"
+  header="Motif de rejet"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '480px' }"
+  [(visible)]="rejectVisible"
+>
+  <div class="form-grid">
+    <label class="full">
+      <span>Raison</span>
+      <textarea
+        pTextarea
+        rows="3"
+        [(ngModel)]="rejectReason"
+        placeholder="Précisez le motif du rejet…"
+      ></textarea>
+    </label>
+    <div class="full actions">
+      <p-button
+        type="button"
+        label="Annuler"
+        severity="secondary"
+        [text]="true"
+        (onClick)="rejectVisible = false"
+      />
+      <p-button
+        type="button"
+        label="Confirmer le rejet"
+        icon="pi pi-times"
+        severity="danger"
+        [loading]="reviewing()"
+        (onClick)="confirmReject()"
+      />
+    </div>
+  </div>
+</p-dialog>

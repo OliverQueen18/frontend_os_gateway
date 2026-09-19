@@ -1,0 +1,430 @@
+<p-toast />
+<app-page-header
+  title="Transactions"
+  subtitle="Par défaut : transactions du jour. Filtrez par période (Du / Au)."
+>
+  <p-button label="Nouvelle transaction" icon="pi pi-plus" (onClick)="openCreate()" />
+</app-page-header>
+
+<section class="panel mb-4">
+  <div class="filters tx-filters">
+    <div class="search-field">
+      <i class="pi pi-search"></i>
+      <input pInputText type="search" [(ngModel)]="search" placeholder="Rechercher (réf., téléphone…)" />
+    </div>
+    <p-select
+      [options]="filterTypes"
+      [(ngModel)]="filters.type"
+      optionLabel="label"
+      optionValue="value"
+      placeholder="Tous types"
+      [showClear]="true"
+      appendTo="body"
+      styleClass="tx-filter-select"
+      (onChange)="reloadFromFilters()"
+    />
+    <p-select
+      [options]="statuses"
+      [(ngModel)]="filters.status"
+      optionLabel="label"
+      optionValue="value"
+      placeholder="Tous statuts"
+      [showClear]="true"
+      appendTo="body"
+      styleClass="tx-filter-select"
+      (onChange)="reloadFromFilters()"
+    />
+    <p-select
+      [options]="operators"
+      [(ngModel)]="filters.operator"
+      optionLabel="label"
+      optionValue="value"
+      placeholder="Tous opérateurs"
+      [showClear]="true"
+      appendTo="body"
+      styleClass="tx-filter-select"
+      (onChange)="reloadFromFilters()"
+    />
+    <p-select
+      [options]="filterDistributorChoices"
+      [(ngModel)]="filters.distributorId"
+      optionLabel="label"
+      optionValue="value"
+      placeholder="Tous distributeurs"
+      [showClear]="true"
+      [filter]="true"
+      appendTo="body"
+      styleClass="tx-filter-select"
+      (onChange)="reloadFromFilters()"
+    />
+    <label class="tx-date-field">
+      <span>Du</span>
+      <p-datepicker
+        [(ngModel)]="fromDate"
+        dateFormat="dd/mm/yy"
+        [firstDayOfWeek]="1"
+        [showIcon]="true"
+        [readonlyInput]="true"
+        [maxDate]="toDate"
+        appendTo="body"
+        placeholder="Date début"
+        (onSelect)="reloadFromFilters()"
+      />
+    </label>
+    <label class="tx-date-field">
+      <span>Au</span>
+      <p-datepicker
+        [(ngModel)]="toDate"
+        dateFormat="dd/mm/yy"
+        [firstDayOfWeek]="1"
+        [showIcon]="true"
+        [readonlyInput]="true"
+        [minDate]="fromDate"
+        appendTo="body"
+        placeholder="Date fin"
+        (onSelect)="reloadFromFilters()"
+      />
+    </label>
+    <p-button
+      label="Aujourd’hui"
+      icon="pi pi-calendar"
+      severity="secondary"
+      [outlined]="true"
+      (onClick)="setToday()"
+    />
+    <p-button label="Actualiser" icon="pi pi-refresh" severity="secondary" [outlined]="true" (onClick)="load()" />
+  </div>
+</section>
+
+<section class="panel">
+  <p-table
+    [value]="filteredRows()"
+    [paginator]="true"
+    [rows]="pageSize"
+    [rowsPerPageOptions]="[10, 20, 50]"
+    [totalRecords]="total()"
+    [loading]="loading()"
+    [lazy]="true"
+    (onLazyLoad)="onLazyLoad($event)"
+    styleClass="ops-table"
+  >
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Référence</th>
+        <th>Type</th>
+        <th>Distributeur</th>
+        <th>Opérateur</th>
+        <th>Montant</th>
+        <th>Solde avant</th>
+        <th>Solde après</th>
+        <th>Commission</th>
+        <th>Téléphone</th>
+        <th>Statut</th>
+        <th>Créée</th>
+        <th></th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-tx>
+      <tr>
+        <td class="mono">{{ tx.reference }}</td>
+        <td>
+          <span class="tx-type">
+            <i [class]="typeIcon(tx.type)"></i>
+            <span>{{ typeLabel(tx.type) }}</span>
+          </span>
+        </td>
+        <td>
+          <div class="tx-distributor">
+            <span>{{ distributorName(tx.distributorId) }}</span>
+            @if (distributorPhone(tx.distributorId); as phone) {
+              <small class="muted">{{ phone }}</small>
+            }
+          </div>
+        </td>
+        <td>
+          <div class="tx-distributor">
+            <span>{{ tx.operator }}</span>
+            @if (tx.gatewayId) {
+              <small class="muted mono">{{ gatewayRef(tx.gatewayId) }}</small>
+              @if (gatewayPhone(tx.gatewayId); as gwPhone) {
+                <small class="muted">{{ gwPhone }}</small>
+              }
+            }
+          </div>
+        </td>
+        <td class="tabular">{{ tx.amount | number:'1.0-0' }} {{ tx.currency || 'XOF' }}</td>
+        <td class="tabular">
+          @if (tx.gatewayBalanceBefore != null) {
+            {{ tx.gatewayBalanceBefore | number:'1.0-0' }}
+          } @else {
+            <span class="muted">—</span>
+          }
+        </td>
+        <td class="tabular">
+          @if (tx.gatewayBalanceAfter != null) {
+            {{ tx.gatewayBalanceAfter | number:'1.0-0' }}
+          } @else {
+            <span class="muted">—</span>
+          }
+        </td>
+        <td class="tabular">{{ (tx.commission ?? 0) | number:'1.0-0' }}</td>
+        <td>{{ tx.phoneNumber || tx.beneficiaryPhone || '—' }}</td>
+        <td><app-status-badge [status]="tx.status" /></td>
+        <td>{{ tx.createdAt | relativeTime }}</td>
+        <td class="actions">
+          <p-button icon="pi pi-eye" [text]="true" title="Détail" (onClick)="openDetail(tx)" />
+          @if (canCancel(tx)) {
+            <p-button
+              icon="pi pi-times"
+              severity="danger"
+              [text]="true"
+              title="Annuler"
+              (onClick)="cancel(tx)"
+            />
+          }
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="12" class="empty-row">Aucune transaction pour cette période.</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</section>
+
+<p-dialog
+  styleClass="crud-dialog"
+  header="Nouvelle transaction"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '520px' }"
+  [(visible)]="createVisible"
+>
+  <form class="form-grid" [formGroup]="form" (ngSubmit)="save()">
+    <label class="full">
+      <span>Distributeur (solde UV débité)</span>
+      <p-select
+        [options]="distributorChoices"
+        formControlName="distributorId"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Choisir un distributeur"
+        appendTo="body"
+      />
+    </label>
+    <label>
+      <span>Opérateur</span>
+      <p-select
+        [options]="operatorChoices"
+        formControlName="operator"
+        optionLabel="label"
+        optionValue="value"
+        appendTo="body"
+      />
+    </label>
+    <label>
+      <span>Type d’opération</span>
+      <p-select
+        [options]="typeChoices()"
+        formControlName="type"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Choisir un type"
+        appendTo="body"
+      >
+        <ng-template pTemplate="selectedItem" let-selected>
+          @if (selected) {
+            <span class="icon-option">
+              <i [class]="selected.icon || typeIcon(selected.value || selected) || 'pi pi-bolt'"></i>
+              <span>{{ selected.label || typeLabel(selected.value || selected) }}</span>
+            </span>
+          }
+        </ng-template>
+        <ng-template pTemplate="item" let-option>
+          <span class="icon-option">
+            <i [class]="option.icon || 'pi pi-bolt'"></i>
+            <span>{{ option.label }}</span>
+          </span>
+        </ng-template>
+      </p-select>
+    </label>
+    @if (requiresPhone()) {
+      <label class="full">
+        <span>Téléphone bénéficiaire</span>
+        <app-phone-input formControlName="beneficiaryPhone" placeholder="70 00 00 00" />
+      </label>
+    }
+    @if (requiresAmount()) {
+      <p class="full form-hint">
+        Le montant + commission sont débités du solde UV du distributeur à la création.
+        La commission est calculée selon le type d’opération.
+      </p>
+      <label>
+        <span>Montant (XOF)</span>
+        <p-inputnumber formControlName="amount" [min]="1" mode="decimal" locale="fr-FR" [useGrouping]="true" />
+      </label>
+      <label>
+        <span>Commission (aperçu)</span>
+        <div class="form-hint">
+          {{ commissionPreview.total | number:'1.0-2' }} XOF
+          <span class="muted">({{ commissionPreview.label }})</span><br />
+          Admin {{ commissionPreview.admin | number:'1.0-2' }} ·
+          Distributeur {{ commissionPreview.distributor | number:'1.0-2' }}
+        </div>
+      </label>
+    }
+    <label class="full">
+      <span>Code PIN du distributeur</span>
+      <input
+        pInputText
+        type="password"
+        inputmode="numeric"
+        maxlength="6"
+        formControlName="pin"
+        placeholder="4 à 6 chiffres"
+        autocomplete="one-time-code"
+      />
+    </label>
+    <label class="full">
+      <span>Priorité</span>
+      <p-select
+        [options]="priorities"
+        formControlName="priority"
+        optionLabel="label"
+        optionValue="value"
+        appendTo="body"
+      />
+    </label>
+    <div class="full actions">
+      <p-button type="button" label="Annuler" severity="secondary" [text]="true" (onClick)="createVisible = false" />
+      <p-button type="submit" label="Créer" icon="pi pi-check" />
+    </div>
+  </form>
+</p-dialog>
+
+<p-drawer [(visible)]="drawerVisible" position="right" [style]="{ width: '420px' }" header="Détail transaction">
+  @if (selected(); as tx) {
+    <div class="detail">
+      <p><strong>Réf.</strong> {{ tx.reference }}</p>
+      <p><strong>Statut</strong> <app-status-badge [status]="tx.status" /></p>
+      <p><strong>Distributeur</strong> {{ distributorName(tx.distributorId) }}
+        @if (distributorPhone(tx.distributorId); as dPhone) {
+          · {{ dPhone }}
+        }
+      </p>
+      <p><strong>Montant</strong> {{ tx.amount | number:'1.0-0' }} {{ tx.currency || 'XOF' }}</p>
+      <p><strong>Solde gateway avant</strong>
+        @if (tx.gatewayBalanceBefore != null) {
+          {{ tx.gatewayBalanceBefore | number:'1.0-0' }} {{ tx.currency || 'XOF' }}
+        } @else {
+          —
+        }
+      </p>
+      <p><strong>Solde gateway après</strong>
+        @if (tx.gatewayBalanceAfter != null) {
+          {{ tx.gatewayBalanceAfter | number:'1.0-0' }} {{ tx.currency || 'XOF' }}
+        } @else {
+          —
+        }
+      </p>
+      @if (tx.gatewayBalanceDelta != null) {
+        <p><strong>Delta solde</strong> {{ tx.gatewayBalanceDelta | number:'1.0-0' }} {{ tx.currency || 'XOF' }}
+          @if (tx.balanceConfirmed != null) {
+            · {{ tx.balanceConfirmed ? 'conforme' : 'non conforme' }}
+          }
+        </p>
+      }
+      <p><strong>Commission</strong> {{ (tx.commission ?? 0) | number:'1.0-2' }} {{ tx.currency || 'XOF' }}</p>
+      <p><strong>Part admin</strong> {{ (tx.adminCommission ?? 0) | number:'1.0-2' }}</p>
+      <p><strong>Part distributeur</strong> {{ (tx.distributorCommission ?? 0) | number:'1.0-2' }}</p>
+      <p><strong>Gateway</strong>
+        @if (tx.gatewayId) {
+          {{ gatewayRef(tx.gatewayId) }}
+          @if (gatewayPhone(tx.gatewayId); as gwPhone) {
+            · {{ gwPhone }}
+          }
+        } @else {
+          —
+        }
+      </p>
+      <p><strong>Durée</strong> {{ tx.durationMs ? (tx.durationMs + ' ms') : '—' }}</p>
+
+      <h3>Réponse USSD</h3>
+      <pre class="ussd">{{ tx.ussdResponse || 'Aucune réponse capturée' }}</pre>
+
+      <h3>Capture d’écran</h3>
+      <div class="shot">
+        @if (tx.screenshotUrl) {
+          <img [src]="tx.screenshotUrl" alt="Screenshot transaction" />
+        } @else {
+          <div class="shot__placeholder">
+            <i class="pi pi-image"></i>
+            <span>Aperçu non disponible</span>
+          </div>
+        }
+      </div>
+
+      <h3>Timeline</h3>
+      <ul class="timeline">
+        @for (e of timeline(); track e.id) {
+          <li>
+            <app-status-badge [status]="e.status || e.toStatus || 'PENDING'" />
+            <div>
+              <div>{{ e.note }}</div>
+              <small>{{ e.createdAt | date:'short' }}</small>
+            </div>
+          </li>
+        }
+      </ul>
+
+      @if (canCancel(tx)) {
+        <div class="actions" style="margin-top: 1rem">
+          <p-button label="Annuler" icon="pi pi-times" severity="danger" [outlined]="true" (onClick)="cancel(tx)" />
+        </div>
+      }
+      @if (tx.status === 'CANCELLED') {
+        <p><strong>Motif</strong> {{ cancellationReasonLabel(tx.cancellationReasonId) }}</p>
+        @if (tx.cancellationNote) {
+          <p><strong>Commentaire</strong> {{ tx.cancellationNote }}</p>
+        }
+      }
+    </div>
+  }
+</p-drawer>
+
+<p-dialog
+  styleClass="crud-dialog"
+  header="Annuler la transaction"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '440px' }"
+  [(visible)]="cancelVisible"
+>
+  @if (cancelTarget(); as tx) {
+    <div class="form-grid">
+      <p class="full muted">{{ tx.reference }} — le montant et la commission seront remboursés au distributeur.</p>
+      <label class="full">
+        <span>Motif d’annulation</span>
+        <p-select
+          [options]="cancelReasonChoices"
+          [(ngModel)]="cancelReasonId"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Choisir un motif"
+          appendTo="body"
+        />
+      </label>
+      <label class="full">
+        <span>Commentaire (optionnel)</span>
+        <textarea pTextarea rows="3" [(ngModel)]="cancelNote" placeholder="Précisions…"></textarea>
+      </label>
+      <div class="full actions">
+        <p-button type="button" label="Fermer" severity="secondary" [text]="true" (onClick)="cancelVisible = false" />
+        <p-button label="Confirmer l’annulation" icon="pi pi-times" severity="danger" (onClick)="confirmCancel()" />
+      </div>
+    </div>
+  }
+</p-dialog>

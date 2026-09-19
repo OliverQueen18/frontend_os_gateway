@@ -1,0 +1,68 @@
+<div class="shell" [class.shell--collapsed]="collapsed()">
+  <aside class="shell__sidebar">
+    <div class="shell__brand">
+      <img class="shell__logo" src="brand/logo-mark.png" alt="" width="40" height="40" />
+      @if (!collapsed()) {
+        <div class="shell__brand-text">
+          <span class="shell__product">OS Gateway</span>
+          <span class="shell__tag">Votre passerelle Mobile Money</span>
+        </div>
+      }
+    </div>
+
+    <nav class="shell__nav" aria-label="Navigation principale">
+      @for (item of nav(); track item.route) {
+        <a
+          [routerLink]="item.route"
+          routerLinkActive="is-active"
+          class="shell__link"
+          [pTooltip]="collapsed() ? item.label : ''"
+          tooltipPosition="right"
+        >
+          <i [class]="item.icon"></i>
+          @if (!collapsed()) {
+            <span>{{ item.label }}</span>
+          }
+        </a>
+      }
+    </nav>
+  </aside>
+
+  <div class="shell__main">
+    <header class="shell__topbar">
+      <button type="button" class="icon-btn" (click)="toggleSidebar()" aria-label="Basculer le menu">
+        <i class="pi pi-bars"></i>
+      </button>
+
+      <div class="shell__search">
+        <i class="pi pi-search"></i>
+        <input type="search" placeholder="Rechercher une transaction, gateway, utilisateur…" />
+      </div>
+
+      <div class="shell__actions">
+        <span class="live-pill">
+          <span class="live-dot"></span>
+          Temps réel
+        </span>
+        <div class="user-chip">
+          <span class="user-chip__avatar">{{ (user()?.username || 'U').slice(0, 1).toUpperCase() }}</span>
+          <div class="user-chip__meta">
+            <strong>{{ user()?.username }}</strong>
+            <small>{{ user()?.roles?.[0] || 'USER' }}</small>
+          </div>
+        </div>
+        <p-button
+          icon="pi pi-sign-out"
+          [text]="true"
+          severity="secondary"
+          (onClick)="logout()"
+          aria-label="Déconnexion"
+        />
+      </div>
+    </header>
+
+    <main class="shell__content">
+      <router-outlet />
+    </main>
+  </div>
+</div>

@@ -1,0 +1,107 @@
+<p-toast />
+<app-page-header title="Utilisateurs" subtitle="CRUD des comptes plateforme et attribution de rôles.">
+  <p-button label="Nouvel utilisateur" icon="pi pi-plus" (onClick)="openCreate()" />
+</app-page-header>
+
+<section class="panel mb-4">
+  <div class="filters">
+    <div class="search-field">
+      <i class="pi pi-search"></i>
+      <input
+        pInputText
+        type="search"
+        [(ngModel)]="search"
+        placeholder="Rechercher (utilisateur, email, téléphone…)"
+        (ngModelChange)="reload()"
+      />
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <p-table [value]="filteredUsers()" styleClass="ops-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Utilisateur</th>
+        <th>Email</th>
+        <th>Téléphone</th>
+        <th>Rôles</th>
+        <th>État</th>
+        <th></th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-u>
+      <tr>
+        <td>
+          <div class="cell-title">{{ u.fullName || u.username }}</div>
+          <div class="muted">@{{ u.username }}</div>
+        </td>
+        <td>{{ u.email }}</td>
+        <td>{{ u.phone || '—' }}</td>
+        <td>{{ formatRoleList(u.roles) }}</td>
+        <td>
+          <app-status-badge [status]="u.enabled ? 'ACTIVE' : 'OFFLINE'" [label]="u.enabled ? 'Actif' : 'Inactif'" />
+        </td>
+        <td class="actions">
+          <p-button icon="pi pi-pencil" [text]="true" (onClick)="openEdit(u)" />
+          <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="remove(u)" />
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</section>
+
+<p-dialog
+  styleClass="crud-dialog"
+  [header]="editingId ? 'Modifier utilisateur' : 'Nouvel utilisateur'"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '520px' }"
+  [(visible)]="visible"
+>
+  <form class="form-grid" [formGroup]="form" (ngSubmit)="save()">
+    <label>
+      <span>Username</span>
+      <input pInputText formControlName="username" [readonly]="!!editingId" />
+    </label>
+    <label>
+      <span>Email</span>
+      <input pInputText formControlName="email" />
+    </label>
+    <label>
+      <span>Nom complet</span>
+      <input pInputText formControlName="fullName" />
+    </label>
+    <label class="full">
+      <span>Téléphone</span>
+      <app-phone-input formControlName="phone" placeholder="70 00 00 00" />
+    </label>
+    @if (!editingId) {
+      <label class="full">
+        <span>Mot de passe</span>
+        <input pInputText type="password" formControlName="password" />
+      </label>
+    }
+    <label class="full">
+      <span>Rôles</span>
+      <p-multiselect
+        [options]="roleOptions()"
+        formControlName="roles"
+        optionLabel="label"
+        optionValue="value"
+        display="chip"
+        styleClass="w-full"
+        appendTo="body"
+      />
+    </label>
+    <label class="switch-row">
+      <span>Compte actif</span>
+      <p-toggleswitch formControlName="enabled" />
+    </label>
+    <div class="full actions">
+      <p-button type="button" label="Annuler" severity="secondary" [text]="true" (onClick)="visible = false" />
+      <p-button type="submit" label="Enregistrer" icon="pi pi-check" [loading]="saving()" />
+    </div>
+  </form>
+</p-dialog>

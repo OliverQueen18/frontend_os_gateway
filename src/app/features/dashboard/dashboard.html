@@ -1,0 +1,82 @@
+<app-page-header
+  title="Tableau de bord"
+  subtitle="Supervision temps réel des gateways Android, flux USSD et SMS."
+  eyebrow="Ops console"
+/>
+
+@if (stats(); as s) {
+  <section class="kpi-grid">
+    <app-kpi-card label="Gateways" [value]="s.gatewaysTotal" hint="Total enregistrés" icon="pi pi-server" />
+    <app-kpi-card label="Actives" [value]="s.gatewaysOnline" hint="Online / Busy / Idle" icon="pi pi-check-circle" delta="+ sync 5s" trend="up" />
+    <app-kpi-card label="Hors ligne" [value]="s.gatewaysOffline" hint="Sans heartbeat" icon="pi pi-power-off" />
+    <app-kpi-card label="Batterie faible" [value]="s.lowBattery" hint="< 25%" icon="pi pi-bolt" />
+    <app-kpi-card label="Réseau faible" [value]="s.poorNetwork" hint="Signal < 40%" icon="pi pi-wifi" />
+    <app-kpi-card label="TX / min" [value]="(s.txPerMin | number:'1.1-1') || '0'" icon="pi pi-sync" />
+    <app-kpi-card label="SMS / min" [value]="(s.smsPerMin | number:'1.1-1') || '0'" icon="pi pi-send" />
+    <app-kpi-card label="Solde distributeurs" [value]="((s.distributorBalance | number:'1.0-0') || '0') + ' XOF'" icon="pi pi-wallet" />
+  </section>
+}
+
+<section class="dash-grid">
+  <article class="panel chart-panel">
+    <div class="panel__head">
+      <h2>Flux temps réel</h2>
+      <span class="muted">Rafraîchi toutes les 5 s</span>
+    </div>
+    <div class="chart-wrap">
+      <p-chart type="line" [data]="chartData" [options]="chartOptions" height="280px" />
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel__head">
+      <h2>Alertes récentes</h2>
+      <a routerLink="/alerts" class="link">Voir tout</a>
+    </div>
+    <ul class="alert-list">
+      @for (a of alerts(); track a.id) {
+        <li>
+          <span class="sev" [attr.data-sev]="a.severity">{{ a.severity }}</span>
+          <div>
+            <strong>{{ a.title }}</strong>
+            <p>{{ a.message }}</p>
+            <small>{{ a.createdAt | relativeTime }}</small>
+          </div>
+        </li>
+      } @empty {
+        <li class="muted">Aucune alerte</li>
+      }
+    </ul>
+  </article>
+</section>
+
+<article class="panel mt-4">
+  <div class="panel__head">
+    <h2>État des gateways</h2>
+  </div>
+  <p-table [value]="gateways()" [rows]="8" styleClass="ops-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Gateway</th>
+        <th>Opérateur</th>
+        <th>Statut</th>
+        <th>Batterie</th>
+        <th>Signal</th>
+        <th>Heartbeat</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-g>
+      <tr>
+        <td>
+          <div class="cell-title">{{ g.name }}</div>
+          <div class="muted">{{ g.deviceId }}</div>
+        </td>
+        <td>{{ g.operator }}</td>
+        <td><app-status-badge [status]="g.status" /></td>
+        <td><app-meter-bar [value]="g.batteryLevel" kind="battery" label="Batterie" /></td>
+        <td><app-meter-bar [value]="g.networkStrength" kind="signal" label="Signal" /></td>
+        <td>{{ g.lastHeartbeatAt | relativeTime }}</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</article>

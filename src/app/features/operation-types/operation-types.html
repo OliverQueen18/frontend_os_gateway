@@ -1,0 +1,203 @@
+<p-toast />
+<app-page-header
+  title="Types d’opérations"
+  subtitle="Configurer les opérations Mobile Money, l’impact UV et les commissions."
+>
+  <p-button label="Type d’opération" icon="pi pi-plus" (onClick)="openCreateOp()" />
+</app-page-header>
+
+<section class="panel mb-4">
+  <div class="filters">
+    <div class="search-field">
+      <i class="pi pi-search"></i>
+      <input pInputText type="search" [(ngModel)]="search" placeholder="Rechercher (code, libellé…)" />
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <p-table [value]="filteredOperationTypes()" styleClass="ops-table">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Icône</th>
+        <th>Code</th>
+        <th>Libellé</th>
+        <th>Impact solde UV</th>
+        <th>Commission</th>
+        <th>Parts</th>
+        <th>État</th>
+        <th>Tél.</th>
+        <th>Montant</th>
+        <th>Annulable</th>
+        <th></th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-op>
+      <tr>
+        <td>
+          <span class="op-icon" [attr.title]="op.icon || 'pi pi-bolt'">
+            <i [class]="op.icon || 'pi pi-bolt'"></i>
+          </span>
+        </td>
+        <td class="mono">{{ op.code }}</td>
+        <td>
+          <div class="cell-title">{{ op.label }}</div>
+          <div class="muted clamp">{{ op.description || '—' }}</div>
+        </td>
+        <td>{{ effectLabel(op.balanceEffect) }}</td>
+        <td class="tabular">{{ commissionLabel(op) }}</td>
+        <td class="tabular">{{ op.adminSharePercent ?? 40 }}% / {{ op.distributorSharePercent ?? 60 }}%</td>
+        <td>
+          <app-status-badge [status]="op.active ? 'ACTIVE' : 'OFFLINE'" [label]="op.active ? 'Actif' : 'Inactif'" />
+        </td>
+        <td>
+          <app-status-badge
+            [status]="op.requiresPhone !== false ? 'ACTIVE' : 'OFFLINE'"
+            [label]="op.requiresPhone !== false ? 'Oui' : 'Non'"
+          />
+        </td>
+        <td>
+          <app-status-badge
+            [status]="op.requiresAmount !== false ? 'ACTIVE' : 'OFFLINE'"
+            [label]="op.requiresAmount !== false ? 'Oui' : 'Non'"
+          />
+        </td>
+        <td>
+          <app-status-badge
+            [status]="op.cancellable !== false ? 'ACTIVE' : 'OFFLINE'"
+            [label]="op.cancellable !== false ? 'Oui' : 'Non'"
+          />
+        </td>
+        <td class="actions">
+          <p-button icon="pi pi-pencil" [text]="true" (onClick)="openEditOp(op)" />
+          <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="removeOp(op)" />
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</section>
+
+<p-dialog
+  styleClass="crud-dialog"
+  [header]="editingOpId ? 'Modifier type d’opération' : 'Nouveau type d’opération'"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '560px' }"
+  [(visible)]="opVisible"
+>
+  <form class="form-grid" [formGroup]="opForm" (ngSubmit)="saveOp()">
+    <label>
+      <span>Code</span>
+      <input pInputText formControlName="code" placeholder="DEPOT" />
+    </label>
+    <label>
+      <span>Libellé</span>
+      <input pInputText formControlName="label" placeholder="Dépôt client" />
+    </label>
+    <label class="full">
+      <span>Description</span>
+      <textarea pTextarea rows="2" formControlName="description"></textarea>
+    </label>
+    <label class="full">
+      <span>Icône</span>
+      <p-select
+        [options]="iconChoices"
+        formControlName="icon"
+        optionLabel="label"
+        optionValue="value"
+        appendTo="body"
+        placeholder="Choisir une icône"
+      >
+        <ng-template pTemplate="selectedItem" let-selected>
+          @if (selected) {
+            <span class="icon-option">
+              <i [class]="selected.value"></i>
+              <span>{{ selected.label }}</span>
+            </span>
+          }
+        </ng-template>
+        <ng-template pTemplate="item" let-option>
+          <span class="icon-option">
+            <i [class]="option.value"></i>
+            <span>{{ option.label }}</span>
+          </span>
+        </ng-template>
+      </p-select>
+    </label>
+    <label class="full">
+      <span>Impact sur le solde UV</span>
+      <p-select
+        [options]="balanceEffects"
+        formControlName="balanceEffect"
+        optionLabel="label"
+        optionValue="value"
+        appendTo="body"
+      />
+    </label>
+    <label>
+      <span>Mode commission</span>
+      <p-select
+        [options]="commissionModes"
+        formControlName="commissionMode"
+        optionLabel="label"
+        optionValue="value"
+        appendTo="body"
+      />
+    </label>
+    <label>
+      <span>Valeur commission</span>
+      <p-inputnumber
+        formControlName="commissionValue"
+        [min]="0"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="4"
+        mode="decimal"
+        locale="fr-FR"
+        [useGrouping]="true"
+      />
+    </label>
+    <label>
+      <span>Part admin (%)</span>
+      <p-inputnumber
+        formControlName="adminSharePercent"
+        [min]="0"
+        [max]="100"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+        (onInput)="onAdminShareChange($event.value)"
+      />
+    </label>
+    <label>
+      <span>Part distributeur (%)</span>
+      <p-inputnumber
+        formControlName="distributorSharePercent"
+        [min]="0"
+        [max]="100"
+        [minFractionDigits]="0"
+        [maxFractionDigits]="2"
+        (onInput)="onDistributorShareChange($event.value)"
+      />
+    </label>
+    <label class="switch-row full">
+      <span>Actif</span>
+      <p-toggleswitch formControlName="active" />
+    </label>
+    <label class="switch-row full">
+      <span>Téléphone client requis</span>
+      <p-toggleswitch formControlName="requiresPhone" />
+    </label>
+    <label class="switch-row full">
+      <span>Montant requis</span>
+      <p-toggleswitch formControlName="requiresAmount" />
+    </label>
+    <label class="switch-row full">
+      <span>Annulable (PENDING / QUEUED)</span>
+      <p-toggleswitch formControlName="cancellable" />
+    </label>
+    <div class="full actions">
+      <p-button type="button" label="Annuler" severity="secondary" [text]="true" (onClick)="opVisible = false" />
+      <p-button type="submit" label="Enregistrer" icon="pi pi-check" />
+    </div>
+  </form>
+</p-dialog>
