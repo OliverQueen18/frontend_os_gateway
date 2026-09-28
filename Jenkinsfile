@@ -28,9 +28,14 @@ pipeline {
             description: 'SSH user@host du VPS'
         )
         string(
-            name: 'WWW_PATH',
-            defaultValue: '/var/www/osgateway/frontend',
-            description: 'Racine Nginx du frontend'
+            name: 'DEPLOY_PATH',
+            defaultValue: '/home/adminubuntu/OliveApps',
+            description: 'Dossier OliveApps (docker compose)'
+        )
+        string(
+            name: 'ENV_FILE',
+            defaultValue: '/home/adminubuntu/OliveApps/prod.env',
+            description: 'Fichier env OliveApps'
         )
     }
 
@@ -89,20 +94,21 @@ pipeline {
                 expression { params.DEPLOY }
             }
             steps {
-                sshagent(credentials: ['oliveapps-ssh']) {
+                withCredentials([sshUserPrivateKey(
+                    credentialsId: 'oliveapps-ssh',
+                    keyFileVariable: 'SSH_KEY'
+                )]) {
                     sh """
                     set -e
-                    ssh -o StrictHostKeyChecking=no ${params.DEPLOY_HOST} bash -s <<ENDSSH
+                    chmod 600 "\$SSH_KEY"
+                    ssh -i "\$SSH_KEY" -o StrictHostKeyChecking=no ${params.DEPLOY_HOST} bash -s <<ENDSSH
 set -e
-docker pull ${DOCKER_IMAGE}:latest
-CID=\$(docker create ${DOCKER_IMAGE}:latest)
-sudo mkdir -p ${params.WWW_PATH}
-sudo rm -rf ${params.WWW_PATH}/*
-sudo docker cp "\$CID:/usr/share/nginx/html/." ${params.WWW_PATH}/
-docker rm "\$CID"
-sudo chown -R www-data:www-data ${params.WWW_PATH} || true
-sudo nginx -t && sudo systemctl reload nginx || true
-echo "Frontend déployé dans ${params.WWW_PATH}"
+cd ${params.DEPLOY_PATH}
+export OSG_TAG=${DOCKER_TAG}
+docker compose --env-file ${params.ENV_FILE} pull frontend-osgateway
+docker compose --env-file ${params.ENV_FILE} up -d frontend-osgateway
+docker image prune -f || true
+echo "Frontend OS Gateway déployé"
 ENDSSH
                     """
                 }
