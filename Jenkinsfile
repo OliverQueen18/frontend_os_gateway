@@ -34,7 +34,7 @@ pipeline {
         )
         string(
             name: 'ENV_FILE',
-            defaultValue: '/home/adminubuntu/OliveApps/prod.env',
+            defaultValue: '/home/adminubuntu/OliveApps/.env',
             description: 'Fichier env OliveApps'
         )
     }
@@ -104,9 +104,9 @@ pipeline {
                     ssh -i "\$SSH_KEY" -o StrictHostKeyChecking=no ${params.DEPLOY_HOST} bash -s <<ENDSSH
 set -e
 cd ${params.DEPLOY_PATH}
-export OSG_TAG=${DOCKER_TAG}
+
 docker compose --env-file ${params.ENV_FILE} pull frontend-osgateway
-docker compose --env-file ${params.ENV_FILE} up -d frontend-osgateway
+docker compose --env-file ${params.ENV_FILE} up -d --no-deps frontend-osgateway
 docker image prune -f || true
 echo "Frontend OS Gateway déployé"
 ENDSSH
