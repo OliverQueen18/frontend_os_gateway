@@ -95,7 +95,7 @@ pipeline {
             }
             steps {
                 withCredentials([sshUserPrivateKey(
-                    credentialsId: 'oliveapps-ssh',
+                    credentialsId: 'ssh-server-credentials',
                     keyFileVariable: 'SSH_KEY'
                 )]) {
                     sh """
