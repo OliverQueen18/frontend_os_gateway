@@ -192,6 +192,38 @@ export interface OperationType {
   requiresPhone?: boolean;
   /** When true, amount (> 0) is required on create. */
   requiresAmount?: boolean;
+  operatorCommissions?: OperatorCommission[];
+  commissionRules?: CommissionRule[];
+}
+
+export type CommissionCalculationMode = 'BASE_THEN_SPLIT' | 'DIRECT_ON_AMOUNT';
+
+export interface CommissionRule {
+  id?: number;
+  operatorCode: string;
+  operatorName?: string;
+  amountMin?: number | null;
+  amountMax?: number | null;
+  calculationMode: CommissionCalculationMode;
+  ratePercent?: number | null;
+  commissionMin?: number | null;
+  commissionMax?: number | null;
+  distributorRate: number;
+  adminRate: number;
+  operatorRate?: number | null;
+  validFrom?: string | null;
+  validTo?: string | null;
+  active?: boolean;
+  priority?: number;
+}
+
+export interface OperatorCommission {
+  operatorCode: string;
+  operatorName?: string;
+  commissionMode?: CommissionMode;
+  commissionValue?: number;
+  adminSharePercent?: number;
+  distributorSharePercent?: number;
 }
 
 export interface OperationTypeRequest {

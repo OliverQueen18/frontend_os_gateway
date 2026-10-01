@@ -1,7 +1,7 @@
 <p-toast />
 <app-page-header
   title="Types d’opérations"
-  subtitle="Configurer les opérations Mobile Money, l’impact UV et les commissions."
+  subtitle="Configurer les opérations Mobile Money, l’impact UV et le barème de commission par opérateur."
 >
   <p-button label="Type d’opération" icon="pi pi-plus" (onClick)="openCreateOp()" />
 </app-page-header>
@@ -69,6 +69,7 @@
           />
         </td>
         <td class="actions">
+          <p-button icon="pi pi-percentage" [text]="true" pTooltip="Barème" (onClick)="openBareme(op)" />
           <p-button icon="pi pi-pencil" [text]="true" (onClick)="openEditOp(op)" />
           <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="removeOp(op)" />
         </td>
@@ -83,7 +84,7 @@
   [modal]="true"
   [draggable]="false"
   [resizable]="false"
-  [style]="{ width: '560px' }"
+  [style]="{ width: '760px' }"
   [(visible)]="opVisible"
 >
   <form class="form-grid" [formGroup]="opForm" (ngSubmit)="saveOp()">
@@ -179,6 +180,10 @@
         (onInput)="onDistributorShareChange($event.value)"
       />
     </label>
+    <p class="full muted">
+      Ces valeurs servent de repli lorsqu’aucun palier du barème ne correspond à l’opérateur et au montant.
+      Le barème (plancher, plafond, taux par acteur) se règle avec le bouton % de la ligne.
+    </p>
     <label class="switch-row full">
       <span>Actif</span>
       <p-toggleswitch formControlName="active" />
@@ -200,4 +205,188 @@
       <p-button type="submit" label="Enregistrer" icon="pi pi-check" />
     </div>
   </form>
+</p-dialog>
+
+<p-dialog
+  styleClass="crud-dialog"
+  [header]="baremeTitle"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '920px' }"
+  [(visible)]="baremeVisible"
+>
+  <p class="muted">
+    Retrait : base = MIN(MAX(montant × taux, plancher), plafond), puis chaque part est un pourcentage de cette base.
+    Dépôt : chaque taux s’applique directement au montant. Montant max vide = pas de plafond.
+  </p>
+  @for (row of commissionRuleDrafts(); track row.key) {
+    <div class="rule-card">
+      <div class="rule-grid">
+        <label>
+          <span>Opérateur</span>
+          <p-select
+            [options]="operatorChoices()"
+            [ngModel]="row.operatorCode"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="patchRule(row.key, { operatorCode: $event })"
+            optionLabel="label"
+            optionValue="value"
+            appendTo="body"
+          />
+        </label>
+        <label>
+          <span>Règle</span>
+          <p-select
+            [options]="baremeModes"
+            [ngModel]="row.calculationMode"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="patchRule(row.key, { calculationMode: $event })"
+            optionLabel="label"
+            optionValue="value"
+            appendTo="body"
+          />
+        </label>
+        <label>
+          <span>Montant min</span>
+          <p-inputnumber
+            [ngModel]="row.amountMin"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="patchRule(row.key, { amountMin: $event })"
+            [min]="0"
+            mode="decimal"
+            locale="fr-FR"
+          />
+        </label>
+        <label>
+          <span>Montant max</span>
+          <p-inputnumber
+            [ngModel]="row.amountMax"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="patchRule(row.key, { amountMax: $event })"
+            [min]="0"
+            mode="decimal"
+            locale="fr-FR"
+            placeholder="∞"
+          />
+        </label>
+        @if (row.calculationMode === 'BASE_THEN_SPLIT') {
+          <label>
+            <span>Taux de base (%)</span>
+            <p-inputnumber
+              [ngModel]="row.ratePercent"
+              [ngModelOptions]="{ standalone: true }"
+              (ngModelChange)="patchRule(row.key, { ratePercent: $event })"
+              [min]="0"
+              [minFractionDigits]="0"
+              [maxFractionDigits]="4"
+              mode="decimal"
+              locale="fr-FR"
+            />
+          </label>
+        }
+        <label>
+          <span>Commission min</span>
+          <p-inputnumber
+            [ngModel]="row.commissionMin"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="patchRule(row.key, { commissionMin: $event })"
+            [min]="0"
+            mode="decimal"
+            locale="fr-FR"
+          />
+        </label>
+        <label>
+          <span>Commission max</span>
+          <p-inputnumber
+            [ngModel]="row.commissionMax"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="patchRule(row.key, { commissionMax: $event })"
+            [min]="0"
+            mode="decimal"
+            locale="fr-FR"
+          />
+        </label>
+        <label>
+          <span>{{ row.calculationMode === 'DIRECT_ON_AMOUNT' ? 'Taux distributeur (%)' : 'Part distributeur (%)' }}</span>
+          <p-inputnumber
+            [ngModel]="row.distributorRate"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="patchRule(row.key, { distributorRate: $event })"
+            [min]="0"
+            [minFractionDigits]="0"
+            [maxFractionDigits]="4"
+            mode="decimal"
+            locale="fr-FR"
+          />
+        </label>
+        <label>
+          <span>{{ row.calculationMode === 'DIRECT_ON_AMOUNT' ? 'Taux admin (%)' : 'Part admin (%)' }}</span>
+          <p-inputnumber
+            [ngModel]="row.adminRate"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="patchRule(row.key, { adminRate: $event })"
+            [min]="0"
+            [minFractionDigits]="0"
+            [maxFractionDigits]="4"
+            mode="decimal"
+            locale="fr-FR"
+          />
+        </label>
+        <label>
+          <span>{{ row.calculationMode === 'DIRECT_ON_AMOUNT' ? 'Taux opérateur (%)' : 'Part opérateur (%)' }}</span>
+          <p-inputnumber
+            [ngModel]="row.operatorRate"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="patchRule(row.key, { operatorRate: $event })"
+            [min]="0"
+            [minFractionDigits]="0"
+            [maxFractionDigits]="4"
+            mode="decimal"
+            locale="fr-FR"
+          />
+        </label>
+        <label>
+          <span>Début</span>
+          <input
+            pInputText
+            type="date"
+            [ngModel]="row.validFrom"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="patchRule(row.key, { validFrom: $event })"
+          />
+        </label>
+        <label>
+          <span>Fin</span>
+          <input
+            pInputText
+            type="date"
+            [ngModel]="row.validTo"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="patchRule(row.key, { validTo: $event })"
+          />
+        </label>
+        <label class="switch-row">
+          <span>Actif</span>
+          <p-toggleswitch
+            [ngModel]="row.active"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="patchRule(row.key, { active: $event })"
+          />
+        </label>
+      </div>
+      <p-button
+        type="button"
+        icon="pi pi-trash"
+        label="Retirer"
+        severity="danger"
+        [text]="true"
+        (onClick)="removeRule(row.key)"
+      />
+    </div>
+  }
+  <div class="full actions">
+    <p-button type="button" label="Ajouter un palier" icon="pi pi-plus" severity="secondary" (onClick)="addRule()" />
+    <p-button type="button" label="Enregistrer le barème" icon="pi pi-check" (onClick)="saveBareme()" />
+  </div>
 </p-dialog>

@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { ApiResponse } from '../models/api.models';
-import { OperationType, OperationTypeRequest } from '../models/user.models';
+import { CommissionRule, OperationType, OperationTypeRequest, OperatorCommission } from '../models/user.models';
 
 /** Icônes proposées pour les types d’opérations Mobile Money. */
 export const OPERATION_ICON_CHOICES: Array<{ label: string; value: string }> = [
@@ -57,5 +57,29 @@ export class OperationTypeService {
     return this.http
       .delete<ApiResponse<void>>(`${environment.apiUrl}/operation-types/${id}`)
       .pipe(map(() => undefined));
+  }
+
+  replaceOperatorCommissions(id: number, rules: OperatorCommission[]): Observable<OperatorCommission[]> {
+    return this.http
+      .put<ApiResponse<OperatorCommission[]>>(
+        `${environment.apiUrl}/operation-types/${id}/operator-commissions`,
+        rules,
+      )
+      .pipe(map((res) => res.data ?? []));
+  }
+
+  listCommissionRules(id: number): Observable<CommissionRule[]> {
+    return this.http
+      .get<ApiResponse<CommissionRule[]>>(`${environment.apiUrl}/operation-types/${id}/commission-rules`)
+      .pipe(map((res) => res.data ?? []));
+  }
+
+  replaceCommissionRules(id: number, rules: CommissionRule[]): Observable<CommissionRule[]> {
+    return this.http
+      .put<ApiResponse<CommissionRule[]>>(
+        `${environment.apiUrl}/operation-types/${id}/commission-rules`,
+        rules,
+      )
+      .pipe(map((res) => res.data ?? []));
   }
 }

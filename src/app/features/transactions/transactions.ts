@@ -27,7 +27,7 @@ import {
 } from '../../core/services/cancellation-reason.service';
 import { Transaction, TransactionFilters, TransactionHistoryEvent } from '../../core/models/transaction.models';
 import { TransactionStatus, TxPriority } from '../../core/models/api.models';
-import { Distributor, OperationType } from '../../core/models/user.models';
+import { CommissionRule, Distributor, OperationType } from '../../core/models/user.models';
 import { Gateway } from '../../core/models/gateway.models';
 import { apiErrorMessage } from '../../core/utils/api-error';
 import { matchesSearch } from '../../core/utils/text-search';
@@ -183,14 +183,44 @@ export class TransactionsPage implements OnInit {
     total: number;
     admin: number;
     distributor: number;
+    operator: number;
     label: string;
   } {
     const typeCode = this.form.controls.type.value;
     const amount = Number(this.form.controls.amount.value ?? 0);
     const op = this.operationTypes().find((t) => t.code === typeCode);
-    const mode = op?.commissionMode ?? 'PERCENT';
-    const value = Number(op?.commissionValue ?? 1.5);
-    const adminShare = Number(op?.adminSharePercent ?? 40);
+    const operatorCode = (this.form.controls.operator.value ?? '').toUpperCase();
+    const today = new Date().toISOString().slice(0, 10);
+    const matched = (op?.commissionRules ?? [])
+      .filter((rule) => {
+        if (rule.active === false) return false;
+        if ((rule.operatorCode ?? '').toUpperCase() !== operatorCode) return false;
+        const min = Number(rule.amountMin ?? 0);
+        const max = rule.amountMax == null ? null : Number(rule.amountMax);
+        if (amount < min) return false;
+        if (max != null && amount > max) return false;
+        if (rule.validFrom && String(rule.validFrom).slice(0, 10) > today) return false;
+        if (rule.validTo && String(rule.validTo).slice(0, 10) < today) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        const width = (rule: typeof a) => {
+          const min = Number(rule.amountMin ?? 0);
+          const max = rule.amountMax == null ? 1_000_000_000_000 : Number(rule.amountMax);
+          return max - min;
+        };
+        const priority = Number(b.priority ?? 0) - Number(a.priority ?? 0);
+        return priority !== 0 ? priority : width(a) - width(b);
+      })[0];
+    if (matched) {
+      return this.previewFromRule(amount, matched);
+    }
+    const override = op?.operatorCommissions?.find(
+      (rule) => (rule.operatorCode ?? '').toUpperCase() === operatorCode,
+    );
+    const mode = override?.commissionMode ?? op?.commissionMode ?? 'PERCENT';
+    const value = Number(override?.commissionValue ?? op?.commissionValue ?? 1.5);
+    const adminShare = Number(override?.adminSharePercent ?? op?.adminSharePercent ?? 40);
     const total =
       mode === 'FIXED'
         ? Math.round(value * 100) / 100
@@ -198,7 +228,49 @@ export class TransactionsPage implements OnInit {
     const admin = Math.round(((total * adminShare) / 100) * 100) / 100;
     const distributor = Math.round((total - admin) * 100) / 100;
     const label = mode === 'FIXED' ? `${value} XOF fixe` : `${value} %`;
-    return { total, admin, distributor, label };
+    return { total, admin, distributor, operator: 0, label };
+  }
+
+  private previewFromRule(
+    amount: number,
+    rule: CommissionRule,
+  ): { total: number; admin: number; distributor: number; operator: number; label: string } {
+    const money = (value: number) => Math.round(value * 100) / 100;
+    const percentOf = (base: number, rate: number | null | undefined) =>
+      rate == null ? 0 : money((base * Number(rate)) / 100);
+    const clamp = (value: number, min?: number | null, max?: number | null) => {
+      let result = value;
+      if (min != null && result < Number(min)) result = Number(min);
+      if (max != null && result > Number(max)) result = Number(max);
+      return money(result);
+    };
+    if (rule.calculationMode === 'DIRECT_ON_AMOUNT') {
+      let distributor = percentOf(amount, rule.distributorRate);
+      let admin = percentOf(amount, rule.adminRate);
+      let operator = percentOf(amount, rule.operatorRate);
+      let total = money(distributor + admin + operator);
+      const clamped = clamp(total, rule.commissionMin, rule.commissionMax);
+      if (total > 0 && clamped !== total) {
+        const factor = clamped / total;
+        distributor = money(distributor * factor);
+        admin = money(admin * factor);
+        operator = money(Math.max(0, clamped - distributor - admin));
+        total = clamped;
+      }
+      return { total, admin, distributor, operator, label: 'taux sur le montant' };
+    }
+    const raw = (amount * Number(rule.ratePercent ?? 0)) / 100;
+    const base = clamp(raw, rule.commissionMin, rule.commissionMax);
+    const distributor = percentOf(base, rule.distributorRate);
+    const admin = percentOf(base, rule.adminRate);
+    const operator = percentOf(base, rule.operatorRate);
+    return {
+      total: money(distributor + admin + operator),
+      admin,
+      distributor,
+      operator,
+      label: `base ${base.toLocaleString('fr-FR')} XOF`,
+    };
   }
 
   get filterTypes(): Array<{ label: string; value: string; icon?: string }> {

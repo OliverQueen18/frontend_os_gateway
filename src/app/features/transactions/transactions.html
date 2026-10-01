@@ -272,6 +272,9 @@
           <span class="muted">({{ commissionPreview.label }})</span><br />
           Admin {{ commissionPreview.admin | number:'1.0-2' }} ·
           Distributeur {{ commissionPreview.distributor | number:'1.0-2' }}
+          @if (commissionPreview.operator > 0) {
+            · Opérateur {{ commissionPreview.operator | number:'1.0-2' }}
+          }
         </div>
       </label>
     }
