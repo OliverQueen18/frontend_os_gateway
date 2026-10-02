@@ -22,7 +22,6 @@ import { OperatorService } from '../../core/services/operator.service';
 import {
   BalanceEffect,
   CommissionCalculationMode,
-  CommissionMode,
   CommissionRule,
   OperationType,
 } from '../../core/models/user.models';
@@ -71,8 +70,73 @@ interface CommissionRuleDraft {
   styles: [
     `
       .muted { color: var(--p-text-muted-color, #6b7280); font-size: 0.85rem; margin: 0.25rem 0 0.75rem; }
-      .rule-card { border: 1px solid var(--p-content-border-color, #e5e7eb); border-radius: 8px; padding: 0.75rem; margin-bottom: 0.75rem; }
-      .rule-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem 0.75rem; }
+      .rule-card {
+        border: 1px solid var(--p-content-border-color, #e5e7eb);
+        border-radius: 12px;
+        padding: 0.9rem;
+        margin-bottom: 0.85rem;
+        background: #f8fafc;
+      }
+      .rule-card__head,
+      .rule-fields {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+      }
+      .rule-card label {
+        display: grid;
+        gap: 0.3rem;
+        min-width: 0;
+      }
+      .rule-card label > span {
+        font-size: 0.75rem;
+        font-weight: 650;
+        color: #475569;
+      }
+      .rule-card .p-select,
+      .rule-card .p-inputnumber,
+      .rule-card input {
+        width: 100%;
+        min-width: 0;
+      }
+      :host ::ng-deep .rule-card .p-inputnumber-input {
+        width: 100%;
+      }
+      .rule-section { margin-top: 0.85rem; }
+      .rule-section__title {
+        margin: 0 0 0.45rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #64748b;
+      }
+      .rule-card__tools {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-top: 0.85rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid #e5e7eb;
+      }
+      .rule-card__tools .switch-row { margin: 0; }
+      .bareme-actions {
+        position: sticky;
+        bottom: 0;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        padding: 0.85rem 0 0.15rem;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0), #fff 28%);
+      }
+      @media (min-width: 720px) {
+        .rule-card__head { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.1fr); }
+        .rule-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .rule-fields--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
     `,
   ],
 })
@@ -108,11 +172,6 @@ export class OperationTypesPage implements OnInit {
     { label: 'Sans impact solde', value: 'NONE' },
   ];
 
-  readonly commissionModes: Array<{ label: string; value: CommissionMode }> = [
-    { label: 'Taux (%)', value: 'PERCENT' },
-    { label: 'Montant fixe (XOF)', value: 'FIXED' },
-  ];
-
   readonly iconChoices = OPERATION_ICON_CHOICES;
 
   readonly opForm = this.fb.nonNullable.group({
@@ -121,10 +180,6 @@ export class OperationTypesPage implements OnInit {
     description: [''],
     icon: ['pi pi-bolt', Validators.required],
     balanceEffect: ['DEBIT' as BalanceEffect, Validators.required],
-    commissionMode: ['PERCENT' as CommissionMode, Validators.required],
-    commissionValue: [1.5, [Validators.required, Validators.min(0)]],
-    adminSharePercent: [40, [Validators.required, Validators.min(0), Validators.max(100)]],
-    distributorSharePercent: [60, [Validators.required, Validators.min(0), Validators.max(100)]],
     active: [true],
     cancellable: [true],
     requiresPhone: [true],
@@ -147,10 +202,6 @@ export class OperationTypesPage implements OnInit {
       description: '',
       icon: 'pi pi-bolt',
       balanceEffect: 'DEBIT',
-      commissionMode: 'PERCENT',
-      commissionValue: 1.5,
-      adminSharePercent: 40,
-      distributorSharePercent: 60,
       active: true,
       cancellable: true,
       requiresPhone: true,
@@ -168,10 +219,6 @@ export class OperationTypesPage implements OnInit {
       description: op.description ?? '',
       icon: op.icon || 'pi pi-bolt',
       balanceEffect: op.balanceEffect,
-      commissionMode: op.commissionMode ?? 'PERCENT',
-      commissionValue: Number(op.commissionValue ?? 1.5),
-      adminSharePercent: Number(op.adminSharePercent ?? 40),
-      distributorSharePercent: Number(op.distributorSharePercent ?? 60),
       active: op.active,
       cancellable: op.cancellable !== false,
       requiresPhone: op.requiresPhone !== false,
@@ -179,22 +226,6 @@ export class OperationTypesPage implements OnInit {
     });
     this.opForm.controls.code.disable();
     this.opVisible = true;
-  }
-
-  onAdminShareChange(value: number | null): void {
-    const admin = Number(value ?? 0);
-    this.opForm.patchValue(
-      { adminSharePercent: admin, distributorSharePercent: Math.max(0, 100 - admin) },
-      { emitEvent: false },
-    );
-  }
-
-  onDistributorShareChange(value: number | null): void {
-    const dist = Number(value ?? 0);
-    this.opForm.patchValue(
-      { distributorSharePercent: dist, adminSharePercent: Math.max(0, 100 - dist) },
-      { emitEvent: false },
-    );
   }
 
   saveOp(): void {
@@ -208,22 +239,8 @@ export class OperationTypesPage implements OnInit {
       return;
     }
     const raw = this.opForm.getRawValue();
-    const admin = Math.round(Number(raw.adminSharePercent ?? 0) * 100) / 100;
-    const distributor = Math.round(Number(raw.distributorSharePercent ?? 0) * 100) / 100;
-    if (Math.abs(admin + distributor - 100) > 0.01) {
-      this.opForm.controls.adminSharePercent.setErrors({ sum: true });
-      this.messages.add({
-        severity: 'warn',
-        summary: 'Type d’opération',
-        detail: 'La somme des parts admin + distributeur doit être égale à 100 %.',
-      });
-      return;
-    }
     const payload = {
       ...raw,
-      adminSharePercent: admin,
-      distributorSharePercent: distributor,
-      commissionValue: Number(raw.commissionValue ?? 0),
       requiresPhone: !!raw.requiresPhone,
       requiresAmount: !!raw.requiresAmount,
       cancellable: !!raw.cancellable,
@@ -255,9 +272,7 @@ export class OperationTypesPage implements OnInit {
     if (rules > 0) {
       return `${rules} palier${rules > 1 ? 's' : ''}`;
     }
-    const mode = op.commissionMode ?? 'PERCENT';
-    const value = Number(op.commissionValue ?? 0);
-    return mode === 'FIXED' ? `${value.toLocaleString('fr-FR')} XOF` : `${value} %`;
+    return 'Aucun palier';
   }
 
   openBareme(op: OperationType): void {

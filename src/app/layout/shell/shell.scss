@@ -15,8 +15,10 @@
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   border-right: 1px solid rgba(15, 23, 42, 0.08);
   background: rgba(255, 255, 255, 0.78);
   backdrop-filter: blur(14px);
@@ -29,6 +31,15 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 0.65rem 1.25rem;
+}
+
+.shell__close {
+  display: none;
+  margin-left: auto;
+}
+
+.shell__backdrop {
+  display: none;
 }
 
 .shell__logo {
@@ -63,9 +74,12 @@
 
 .shell__nav {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 0.2rem;
-  overflow: auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding-bottom: 1rem;
 }
 
@@ -248,20 +262,59 @@
   .shell__sidebar {
     position: fixed;
     left: 0;
-    transform: translateX(-100%);
-    width: min(280px, 85vw);
+    top: 0;
+    z-index: 40;
+    width: min(300px, 86vw);
+    transform: translateX(-105%);
+    transition: transform 0.22s ease;
   }
 
-  .shell:not(.shell--collapsed) .shell__sidebar {
+  .shell--nav-open {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .shell--nav-open .shell__sidebar {
     transform: translateX(0);
-    box-shadow: 12px 0 40px rgba(15, 23, 42, 0.12);
+    box-shadow: 12px 0 40px rgba(15, 23, 42, 0.18);
+    z-index: 50;
   }
 
-  .shell__search {
-    display: none;
+  .shell--collapsed .shell__link {
+    justify-content: flex-start;
+    padding-inline: 0.8rem;
   }
 
+  .shell__close {
+    display: inline-grid;
+    place-items: center;
+  }
+
+  .shell__backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    border: 0;
+    padding: 0;
+    background: rgba(15, 23, 42, 0.45);
+    cursor: pointer;
+  }
+
+  .shell__search,
+  .live-pill,
   .user-chip__meta {
     display: none;
+  }
+
+  .shell__topbar {
+    gap: 0.5rem;
+    padding: 0.65rem 0.75rem;
+  }
+
+  .shell__content {
+    padding: 0.9rem 0.75rem 1.5rem;
   }
 }

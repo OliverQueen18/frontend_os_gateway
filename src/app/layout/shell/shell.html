@@ -1,13 +1,19 @@
-<div class="shell" [class.shell--collapsed]="collapsed()">
+<div class="shell" [class.shell--collapsed]="collapsed()" [class.shell--nav-open]="mobileNavOpen()">
+  @if (mobileNavOpen()) {
+    <button type="button" class="shell__backdrop" (click)="closeMobileNav()" aria-label="Fermer le menu"></button>
+  }
   <aside class="shell__sidebar">
     <div class="shell__brand">
       <img class="shell__logo" src="brand/logo-mark.png" alt="" width="40" height="40" />
-      @if (!collapsed()) {
+      @if (showLabels()) {
         <div class="shell__brand-text">
           <span class="shell__product">OS Gateway</span>
           <span class="shell__tag">Votre passerelle Mobile Money</span>
         </div>
       }
+      <button type="button" class="icon-btn shell__close" (click)="closeMobileNav()" aria-label="Fermer le menu">
+        <i class="pi pi-times"></i>
+      </button>
     </div>
 
     <nav class="shell__nav" aria-label="Navigation principale">
@@ -16,11 +22,12 @@
           [routerLink]="item.route"
           routerLinkActive="is-active"
           class="shell__link"
-          [pTooltip]="collapsed() ? item.label : ''"
+          [pTooltip]="showLabels() ? '' : item.label"
           tooltipPosition="right"
+          (click)="closeMobileNav()"
         >
           <i [class]="item.icon"></i>
-          @if (!collapsed()) {
+          @if (showLabels()) {
             <span>{{ item.label }}</span>
           }
         </a>
@@ -30,7 +37,13 @@
 
   <div class="shell__main">
     <header class="shell__topbar">
-      <button type="button" class="icon-btn" (click)="toggleSidebar()" aria-label="Basculer le menu">
+      <button
+        type="button"
+        class="icon-btn"
+        (click)="toggleSidebar()"
+        aria-label="Basculer le menu"
+        [attr.aria-expanded]="mobileNavOpen()"
+      >
         <i class="pi pi-bars"></i>
       </button>
 

@@ -1,6 +1,8 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NavigationStart, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
@@ -21,8 +23,32 @@ interface NavItem {
 })
 export class ShellComponent {
   private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   readonly user = this.auth.user;
+  /** Menu réduit aux icônes, sur grand écran. */
   readonly collapsed = signal(false);
+  /** Tiroir ouvert, sur smartphone. Fermé par défaut pour ne pas couvrir la page. */
+  readonly mobileNavOpen = signal(false);
+  readonly showLabels = computed(() => this.mobileNavOpen() || !this.collapsed());
+
+  constructor() {
+    this.router.events
+      .pipe(
+        filter((event) => event instanceof NavigationStart),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => this.mobileNavOpen.set(false));
+
+    if (typeof window !== 'undefined') {
+      const query = window.matchMedia('(max-width: 960px)');
+      const onChange = (event: MediaQueryListEvent) => {
+        if (!event.matches) this.mobileNavOpen.set(false);
+      };
+      query.addEventListener('change', onChange);
+      this.destroyRef.onDestroy(() => query.removeEventListener('change', onChange));
+    }
+  }
 
   private readonly allNav: NavItem[] = [
     { label: 'Dashboard', icon: 'pi pi-th-large', route: '/dashboard' },
@@ -95,7 +121,15 @@ export class ShellComponent {
   );
 
   toggleSidebar(): void {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 960px)').matches) {
+      this.mobileNavOpen.update((open) => !open);
+      return;
+    }
     this.collapsed.update((v) => !v);
+  }
+
+  closeMobileNav(): void {
+    this.mobileNavOpen.set(false);
   }
 
   logout(): void {

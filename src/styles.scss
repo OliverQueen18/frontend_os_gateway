@@ -988,3 +988,32 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 720px) {
+  .crud-dialog.p-dialog {
+    width: calc(100vw - 1rem) !important;
+    max-width: calc(100vw - 1rem) !important;
+    margin: 0.5rem;
+  }
+
+  .crud-dialog.p-dialog .p-dialog-header,
+  .crud-dialog.p-dialog .p-dialog-content,
+  .crud-dialog.p-dialog .p-dialog-footer {
+    padding-left: 0.9rem;
+    padding-right: 0.9rem;
+  }
+
+  .crud-dialog.p-dialog .p-dialog-content {
+    max-height: calc(100dvh - 7.5rem) !important;
+  }
+
+  .p-datatable {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  h1 {
+    font-size: 1.55rem;
+  }
+}
